@@ -4,6 +4,9 @@ import type {
   TechnicalAnalysis,
   SentimentData,
   Prediction,
+  TrendForecastItem,
+  DynamicRange,
+  TradeLog,
 } from '@/types';
 
 // Generate realistic XAUUSD OHLCV candles
