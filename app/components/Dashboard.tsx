@@ -4,8 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, CandlestickChart, Zap } from 'lucide-react';
 import dynamic from 'next/dynamic';
 const Chart = dynamic(() => import('./Chart'), { ssr: false, loading: () => (
-  <div className="flex items-center justify-center h-96 bg-slate-950">
-    <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+  <div className="flex items-center justify-center" style={{ height: '440px', background: '#0a0a0a' }}>
+    <div className="w-8 h-8 rounded-full animate-spin" style={{ border: '2px solid rgba(212,160,23,0.15)', borderTopColor: '#D4A017' }} />
   </div>
 ) });
 import IndicatorsDisplay from './Indicators';
@@ -334,6 +334,16 @@ export default function Dashboard() {
         {/* Mobile */}
         <div className="md:hidden">
           <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: gold }}>XAU / USD</p>
+          {chartLoading && currentPrice === 0 ? (
+            <div className="animate-pulse space-y-3">
+              <div className="h-12 rounded-lg w-48" style={{ background: 'rgba(212,160,23,0.1)' }} />
+              <div className="h-5 rounded w-32" style={{ background: 'rgba(212,160,23,0.07)' }} />
+              <div className="flex gap-4 pt-2" style={{ borderTop: `1px solid ${goldBorder}` }}>
+                <div className="h-4 rounded w-20" style={{ background: 'rgba(212,160,23,0.07)' }} />
+                <div className="h-4 rounded w-20" style={{ background: 'rgba(212,160,23,0.07)' }} />
+              </div>
+            </div>
+          ) : (<>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-3">
               <p className="text-5xl font-bold text-white tracking-tight leading-none">
@@ -378,9 +388,29 @@ export default function Dashboard() {
               {lastUpdate ? lastUpdate.toLocaleTimeString('id-ID') : ''}
             </span>
           </div>
+          </>)}
         </div>
 
         {/* Desktop */}
+        {chartLoading && currentPrice === 0 ? (
+          <div className="hidden md:grid md:grid-cols-4 gap-4 animate-pulse">
+            {[
+              { icon: <DollarSign className="w-3.5 h-3.5" style={{ color: gold }} />, label: 'Price',    w1: 'w-1/4', w2: 'w-3/5', w3: null },
+              { icon: <TrendingUp  className="w-3.5 h-3.5" style={{ color: gold }} />, label: 'Change',   w1: 'w-1/4', w2: 'w-2/5', w3: 'w-1/3' },
+              { icon: <CandlestickChart className="w-3.5 h-3.5" style={{ color: gold }} />, label: 'High / Low', w1: 'w-1/3', w2: 'w-1/2', w3: 'w-1/2' },
+              { icon: <Zap         className="w-3.5 h-3.5" style={{ color: gold }} />, label: 'Signal',   w1: 'w-1/4', w2: 'w-2/5', w3: null },
+            ].map(({ icon, label, w1, w2, w3 }) => (
+              <div key={label} className="rounded-xl p-4" style={{ background: goldBg, border: `1px solid ${goldBorder}` }}>
+                <div className="flex items-center gap-1.5 mb-3">
+                  {icon}
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: muted }}>{label}</p>
+                </div>
+                <div className={`h-8 rounded-lg mb-2 ${w2}`} style={{ background: 'rgba(212,160,23,0.12)' }} />
+                {w3 && <div className={`h-4 rounded ${w3}`} style={{ background: 'rgba(212,160,23,0.08)' }} />}
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="hidden md:grid md:grid-cols-4 gap-4">
           {/* Price */}
           <div className="rounded-xl p-4" style={{ background: goldBg, border: `1px solid ${goldBorder}` }}>
@@ -439,6 +469,7 @@ export default function Dashboard() {
             ) : <p style={{ color: muted }}>—</p>}
           </div>
         </div>
+        )}
       </div>
 
       {/* Main Content */}

@@ -41,9 +41,32 @@ export default function SignalsDisplay({ signals, loading = false }: SignalsProp
       </div>
 
       {loading && !signals.length && (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-pulse">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'rgba(212,160,23,0.05)' }} />
+            <div key={i} className="rounded-xl p-4" style={{ background: 'rgba(212,160,23,0.04)', border: '1px solid rgba(212,160,23,0.1)' }}>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ background: 'rgba(212,160,23,0.2)' }} />
+                  <div className="h-4 w-12 rounded-full" style={{ background: 'rgba(212,160,23,0.15)' }} />
+                </div>
+                <div className="h-4 w-16 rounded" style={{ background: 'rgba(255,255,255,0.07)' }} />
+              </div>
+              <div className="mb-3">
+                <div className="flex justify-between mb-1.5">
+                  <div className="h-3 w-14 rounded" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                  <div className="h-3 w-8 rounded" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                </div>
+                <div className="h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                {[1,2,3].map(j => (
+                  <div key={j}>
+                    <div className="h-2.5 w-8 rounded mb-1" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                    <div className="h-3.5 w-10 rounded" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
