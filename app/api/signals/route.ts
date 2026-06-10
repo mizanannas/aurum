@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
 import { Signal, ApiResponse } from '@/app/lib/types';
 
-const VALID_TF = ['5m', '1h', '4h', '1d'] as const;
+const VALID_TF = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'] as const;
 const TF_MAP: Record<string, string> = {
-  '5M': '5m', '1H': '1h', '4H': '4h', '1D': '1d',
-  '5m': '5m', '1h': '1h', '4h': '4h', '1d': '1d',
+  '5M': '5m', '15M': '15m', '30M': '30m', '1H': '1h', '4H': '4h', '1D': '1d', '1W': '1w',
+  '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '4h': '4h', '1d': '1d', '1w': '1w',
 };
 
 export async function GET(request: NextRequest) {

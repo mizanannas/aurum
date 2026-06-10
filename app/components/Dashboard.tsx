@@ -12,7 +12,7 @@ import IndicatorsDisplay from './Indicators';
 import SignalsDisplay from './Signals';
 import { Indicators, Signal } from '@/app/lib/types';
 
-type Timeframe = '5M' | '1H' | '4H' | '1D';
+type Timeframe = '5M' | '15M' | '30M' | '1H' | '4H' | '1D' | '1W';
 
 type LiveTick = {
   time: number;
@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [timeframe, setTimeframe] = useState<Timeframe>(() => {
     if (typeof window === 'undefined') return '1H';
     const s = localStorage.getItem('aurum_tf') as Timeframe;
-    return (['5M', '1H', '4H', '1D'] as Timeframe[]).includes(s) ? s : '1H';
+    return (['5M', '15M', '30M', '1H', '4H', '1D', '1W'] as Timeframe[]).includes(s) ? s : '1H';
   });
   const timeframeRef = useRef<Timeframe>(
     typeof window !== 'undefined' && (['5M','1H','4H','1D'] as Timeframe[]).includes(localStorage.getItem('aurum_tf') as Timeframe)
@@ -121,7 +121,7 @@ export default function Dashboard() {
   };
 
   const getPeriodSec = (tf: Timeframe) =>
-    ({ '5M': 300, '1H': 3600, '4H': 14400, '1D': 86400 } as Record<Timeframe, number>)[tf];
+    ({ '5M': 300, '15M': 900, '30M': 1800, '1H': 3600, '4H': 14400, '1D': 86400, '1W': 604800 } as Record<Timeframe, number>)[tf];
 
   const handleTick = useCallback((price: number, tsSec: number) => {
     // ── FIX: Normalkan timestamp — TwelveData kadang kirim ms bukan detik ──

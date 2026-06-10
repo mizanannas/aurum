@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
 
 const TF_MAP: Record<string, { dbTf: string; limit: number }> = {
-  '5M': { dbTf: '5m', limit: 288 },
-  '1H': { dbTf: '1h', limit: 168 },
-  '4H': { dbTf: '4h', limit: 180 },
-  '1D': { dbTf: '1d', limit: 90  },
+  '5M':  { dbTf: '5m',  limit: 288 },
+  '15M': { dbTf: '15m', limit: 480 },
+  '30M': { dbTf: '30m', limit: 240 },
+  '1H':  { dbTf: '1h',  limit: 168 },
+  '4H':  { dbTf: '4h',  limit: 180 },
+  '1D':  { dbTf: '1d',  limit: 90  },
+  '1W':  { dbTf: '1w',  limit: 104 },
 };
 
 export async function GET(request: NextRequest) {

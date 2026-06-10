@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 
-const TIMEFRAMES = ['5M', '1H', '4H', '1D'] as const;
+const TIMEFRAMES = ['5M', '15M', '30M', '1H', '4H', '1D', '1W'] as const;
 type Timeframe = typeof TIMEFRAMES[number];
 
 export type LiveTick = {

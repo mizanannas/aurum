@@ -84,10 +84,13 @@ async function fetchTiingo(startDate: string, resampleFreq: string) {
 }
 
 const TF_CONFIGS = [
-  { dbTf: '5m',  tiingoFreq: '5min',  staleHours: 5/60, daysBack: 2,  minRows: 30, lookback: 60 }, // fetch tiap 5 menit   = ~12/jam
-  { dbTf: '1h',  tiingoFreq: '1Hour', staleHours: 1,    daysBack: 7,  minRows: 30, lookback: 60 }, // fetch tiap 1 jam     = ~1/jam
-  { dbTf: '4h',  tiingoFreq: '4Hour', staleHours: 4,    daysBack: 30, minRows: 26, lookback: 60 }, // fetch tiap 4 jam     = ~1/4jam
-  { dbTf: '1d',  tiingoFreq: '1Day',  staleHours: 24,   daysBack: 90, minRows: 26, lookback: 60 }, // fetch tiap 24 jam    = ~1/hari
+  { dbTf: '5m',  tiingoFreq: '5min',  staleHours: 5/60,  daysBack: 2,   minRows: 30, lookback: 60 },
+  { dbTf: '15m', tiingoFreq: '15min', staleHours: 15/60, daysBack: 5,   minRows: 30, lookback: 60 },
+  { dbTf: '30m', tiingoFreq: '30min', staleHours: 30/60, daysBack: 10,  minRows: 30, lookback: 60 },
+  { dbTf: '1h',  tiingoFreq: '1Hour', staleHours: 1,     daysBack: 7,   minRows: 30, lookback: 60 },
+  { dbTf: '4h',  tiingoFreq: '4Hour', staleHours: 4,     daysBack: 30,  minRows: 26, lookback: 60 },
+  { dbTf: '1d',  tiingoFreq: '1Day',  staleHours: 24,    daysBack: 90,  minRows: 26, lookback: 60 },
+  { dbTf: '1w',  tiingoFreq: '1Week', staleHours: 24*7,  daysBack: 730, minRows: 20, lookback: 52 },
 ];
 
 // ── Route handlers ────────────────────────────────────────────────────────────
