@@ -32,7 +32,7 @@ export default function Dashboard() {
     return (['5M', '15M', '30M', '1H', '4H', '1D', '1W'] as Timeframe[]).includes(s) ? s : '1H';
   });
   const timeframeRef = useRef<Timeframe>(
-    typeof window !== 'undefined' && (['5M','1H','4H','1D'] as Timeframe[]).includes(localStorage.getItem('aurum_tf') as Timeframe)
+    typeof window !== 'undefined' && (['5M','15M','30M','1H','4H','1D','1W'] as Timeframe[]).includes(localStorage.getItem('aurum_tf') as Timeframe)
       ? (localStorage.getItem('aurum_tf') as Timeframe)
       : '1H'
   );
@@ -446,7 +446,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2" style={{ borderRight: `1px solid ${goldBorder}` }}>
           <Chart
             data={chartData}
-            liveTick={liveTick}
+            liveTick={timeframe === '5M' ? liveTick : null}
             loading={chartLoading}
             timeframe={timeframe}
             onTimeframeChange={handleTimeframeChange}

@@ -60,7 +60,7 @@ export default function Chart({ data = [], liveTick = null, loading = false, onT
         timeVisible: true,
         secondsVisible: false,
         minBarSpacing: 3,
-        rightOffset: 12,
+        rightOffset: 0,
         barSpacing: 8,
       },
     });
@@ -102,15 +102,13 @@ export default function Chart({ data = [], liveTick = null, loading = false, onT
       const sorted = [...data].sort((a, b) => a.time - b.time);
       seriesRef.current.setData(sorted);
 
-      // ✅ Set posisi view hanya sekali saat data pertama kali masuk
-      // Setelah itu biarkan library yang handle saat data update
       if (!initializedRef.current) {
         const total = sorted.length;
-        const show = Math.min(total, 80);
-        chartRef.current?.timeScale().setVisibleLogicalRange({
-          from: total - show,
-          to: total + 12, // ~12 candle ruang kosong di kanan seperti trading platform
-        });
+        const targetBars = Math.min(total, 80);
+        const w = containerRef.current?.clientWidth ?? 840;
+        const spacing = Math.max(4, Math.floor((w - 80) / targetBars));
+        chartRef.current?.timeScale().applyOptions({ barSpacing: spacing });
+        chartRef.current?.timeScale().scrollToRealTime();
         initializedRef.current = true;
       }
     } catch (e) {
