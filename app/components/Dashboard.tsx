@@ -16,8 +16,16 @@ type Timeframe = '5M' | '1H' | '4H' | '1D';
 export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartLoading, setChartLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState<Timeframe>('1H');
-  const timeframeRef = useRef<Timeframe>('1H');
+  const [timeframe, setTimeframe] = useState<Timeframe>(() => {
+    if (typeof window === 'undefined') return '1H';
+    const s = localStorage.getItem('aurum_tf') as Timeframe;
+    return (['5M', '1H', '4H', '1D'] as Timeframe[]).includes(s) ? s : '1H';
+  });
+  const timeframeRef = useRef<Timeframe>(
+    typeof window !== 'undefined' && (['5M','1H','4H','1D'] as Timeframe[]).includes(localStorage.getItem('aurum_tf') as Timeframe)
+      ? (localStorage.getItem('aurum_tf') as Timeframe)
+      : '1H'
+  );
 
   const [signals, setSignals] = useState<Signal[]>([]);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
@@ -77,13 +85,13 @@ export default function Dashboard() {
   const handleTimeframeChange = (tf: Timeframe) => {
     setTimeframe(tf);
     timeframeRef.current = tf;
-    // Show spinner only on tab change (no cached data yet for this tf)
+    localStorage.setItem('aurum_tf', tf);
     fetchChartData(tf, true);
   };
 
   useEffect(() => {
     // 1. Load DB immediately — chart shows in <200ms
-    Promise.all([fetchAll(), fetchChartData('1H', true)]);
+    Promise.all([fetchAll(), fetchChartData(timeframeRef.current, true)]);
 
     // 2. Background: sync Tiingo data
     backgroundSync();
@@ -302,6 +310,7 @@ export default function Dashboard() {
           <Chart
             data={chartData}
             loading={chartLoading}
+            timeframe={timeframe}
             onTimeframeChange={handleTimeframeChange}
           />
         </div>

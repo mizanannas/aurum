@@ -10,14 +10,19 @@ interface ChartProps {
   data?: any[];
   loading?: boolean;
   onTimeframeChange?: (tf: Timeframe) => void;
+  timeframe?: Timeframe;
 }
 
-export default function Chart({ data = [], loading = false, onTimeframeChange }: ChartProps) {
+export default function Chart({ data = [], loading = false, onTimeframeChange, timeframe: propTf }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
-  const [activeTab, setActiveTab] = useState<Timeframe>('1H');
+  const [activeTab, setActiveTab] = useState<Timeframe>(propTf || '1H');
+
+  useEffect(() => {
+    if (propTf) setActiveTab(propTf);
+  }, [propTf]);
 
   useEffect(() => {
     if (!containerRef.current) return;
