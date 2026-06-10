@@ -6,17 +6,28 @@ import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 const TIMEFRAMES = ['5M', '1H', '4H', '1D'] as const;
 type Timeframe = typeof TIMEFRAMES[number];
 
+export type LiveTick = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
 interface ChartProps {
   data?: any[];
+  liveTick?: LiveTick | null;   // ← NEW: tick real-time terpisah dari data historis
   loading?: boolean;
   onTimeframeChange?: (tf: Timeframe) => void;
   timeframe?: Timeframe;
 }
 
-export default function Chart({ data = [], loading = false, onTimeframeChange, timeframe: propTf }: ChartProps) {
+export default function Chart({ data = [], liveTick = null, loading = false, onTimeframeChange, timeframe: propTf }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
+  const initializedRef = useRef(false);
+  const isAtRealTimeRef = useRef(true); // track apakah user sedang di posisi terbaru
   const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState<Timeframe>(propTf || '1H');
 
@@ -48,37 +59,83 @@ export default function Chart({ data = [], loading = false, onTimeframeChange, t
         borderColor: '#1e293b',
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 8,
         minBarSpacing: 3,
+        rightOffset: 12,        // ruang kosong di kanan candle terakhir
+        barSpacing: 8,          // lebar candle default lebih nyaman
       },
     });
     chartRef.current = chart;
+
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981', downColor: '#ef4444',
-      borderUpColor: '#10b981', borderDownColor: '#ef4444',
-      wickUpColor: '#10b981', wickDownColor: '#ef4444',
+      upColor: '#10b981',
+      downColor: '#ef4444',
+      borderUpColor: '#10b981',
+      borderDownColor: '#ef4444',
+      wickUpColor: '#10b981',
+      wickDownColor: '#ef4444',
     });
     seriesRef.current = series;
+
+    // Track apakah user scroll mundur — kalau iya, jangan paksa scroll ke kanan
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range: any) => {
+      if (!range) return;
+      // Dapatkan total bar yang ada
+      const totalBars = seriesRef.current?.data()?.length ?? 0;
+      // Jika to >= totalBars - 2, berarti user masih di area terbaru
+      isAtRealTimeRef.current = range.to >= totalBars - 2;
+    });
+
     setReady(true);
-    return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; setReady(false); };
+
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+      initializedRef.current = false;
+      setReady(false);
+    };
   }, []);
 
   useEffect(() => {
     if (!ready || !seriesRef.current || !data?.length) return;
     try {
-      seriesRef.current.setData(data);
-      // Show last ~80 bars by default so candles aren't tiny, with 8-bar right padding
-      const total = data.length;
-      const show  = Math.min(total, 80);
-      chartRef.current?.timeScale().setVisibleLogicalRange({
-        from: total - show,
-        to:   total - 1 + 8,
-      });
-    } catch (e) { console.warn('Chart data error:', e); }
+      const sorted = [...data].sort((a, b) => a.time - b.time);
+      seriesRef.current.setData(sorted);
+
+      // ✅ Set posisi view hanya sekali saat data pertama kali masuk
+      // Setelah itu biarkan library yang handle saat data update
+      if (!initializedRef.current) {
+        const total = sorted.length;
+        const show = Math.min(total, 80);
+        chartRef.current?.timeScale().setVisibleLogicalRange({
+          from: total - show,
+          to: total + 12, // ~12 candle ruang kosong di kanan seperti trading platform
+        });
+        initializedRef.current = true;
+      }
+    } catch (e) {
+      console.warn('Chart data error:', e);
+    }
   }, [data, ready]);
+
+  // ── Live tick: gunakan series.update() bukan setData ────────────────────
+  // KEY FIX: update() hanya repaint 1 candle — tidak trigger reset chart
+  useEffect(() => {
+    if (!ready || !seriesRef.current || !liveTick) return;
+    try {
+      seriesRef.current.update(liveTick);
+      // Hanya auto-scroll kalau user masih di posisi terbaru (belum scroll mundur)
+      if (isAtRealTimeRef.current) {
+        chartRef.current?.timeScale().scrollToRealTime();
+      }
+    } catch (e) {
+      console.warn('Live tick error:', e);
+    }
+  }, [liveTick, ready]);
 
   const handleTab = (tf: Timeframe) => {
     setActiveTab(tf);
+    initializedRef.current = false; // ✅ reset saat ganti timeframe supaya view ikut reset
     onTimeframeChange?.(tf);
   };
 
@@ -108,7 +165,9 @@ export default function Chart({ data = [], loading = false, onTimeframeChange, t
               <span className="text-blue-400 font-mono">{parseFloat(last.close).toFixed(2)}</span>
             </span>
           </div>
-        ) : <div className="flex-1" />}
+        ) : (
+          <div className="flex-1" />
+        )}
 
         {/* Mobile: dropdown — Desktop: tabs */}
         <div className="flex-shrink-0">

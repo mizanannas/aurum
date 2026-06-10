@@ -13,8 +13,17 @@ import { Indicators, Signal } from '@/app/lib/types';
 
 type Timeframe = '5M' | '1H' | '4H' | '1D';
 
+type LiveTick = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
 export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
+  const [liveTick, setLiveTick] = useState<LiveTick | null>(null);
   const [chartLoading, setChartLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<Timeframe>(() => {
     if (typeof window === 'undefined') return '1H';
@@ -33,17 +42,28 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // ── WebSocket live feed ──────────────────────────────────────────────────
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveTickRef = useRef<LiveTick | null>(null);
+
+  // ── FIX: Track last candle time dari historical data ──────────────────────
+  // Ini dipakai untuk validasi bahwa liveTick tidak lebih kecil dari data historis
+  const lastHistoricalTimeRef = useRef<number>(0);
 
   const fetchChartData = useCallback(async (tf: Timeframe, showSpinner = false) => {
     if (showSpinner) setChartLoading(true);
+    setLiveTick(null);
+    liveTickRef.current = null;
     try {
       const res = await fetch(`/api/candles?tf=${tf}`);
       const json = await res.json();
-      if (json.success && json.data?.length) setChartData(json.data);
+      if (json.success && json.data?.length) {
+        const sorted = [...json.data].sort((a: any, b: any) => a.time - b.time);
+        setChartData(sorted);
+        // ── FIX: simpan waktu candle terakhir dari historical ──────────────
+        lastHistoricalTimeRef.current = sorted[sorted.length - 1].time;
+      }
     } catch (_) {
       // keep existing data on error
     } finally {
@@ -51,11 +71,11 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Only fetches signals — price/chart data comes from fetchChartData
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async (tf?: string) => {
     try {
       setError(null);
-      const res = await fetch('/api/signals?limit=20');
+      const timeframe = tf ?? timeframeRef.current;
+      const res = await fetch(`/api/signals?limit=20&timeframe=${timeframe}`);
       const json = await res.json();
       if (json.success && json.data?.length) {
         setSignals(json.data);
@@ -68,20 +88,24 @@ export default function Dashboard() {
     } catch (_) {
       setError('Cannot connect to server');
     }
-  };
+  }, []);
 
-  // Background: fetch fresh data from Tiingo, then silently update UI
+  // backgroundSync hanya untuk signals & indicators — TIDAK menyentuh chartData.
+  // Chart di-update eksklusif via WebSocket liveTick agar tidak ada setData() ulang
+  // yang menyebabkan chart reset / candle melompat ke atas.
   const backgroundSync = useCallback(async () => {
     try {
       await fetch('/api/fetch-price', { method: 'POST' });
-      await Promise.all([fetchAll(), fetchChartData(timeframeRef.current)]);
+      await fetchAll();
     } catch (_) {}
-  }, [fetchAll, fetchChartData]);
+  }, [fetchAll]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await backgroundSync();
+      // Manual refresh tetap fetch semua termasuk chart
+      await fetch('/api/fetch-price', { method: 'POST' });
+      await Promise.all([fetchAll(), fetchChartData(timeframeRef.current, true)]);
     } finally {
       setRefreshing(false);
     }
@@ -92,36 +116,56 @@ export default function Dashboard() {
     timeframeRef.current = tf;
     localStorage.setItem('aurum_tf', tf);
     fetchChartData(tf, true);
+    fetchAll(tf);
   };
 
-  // ── Live candle tick handler ─────────────────────────────────────────────
   const getPeriodSec = (tf: Timeframe) =>
     ({ '5M': 300, '1H': 3600, '4H': 14400, '1D': 86400 } as Record<Timeframe, number>)[tf];
 
   const handleTick = useCallback((price: number, tsSec: number) => {
+    // ── FIX: Normalkan timestamp — TwelveData kadang kirim ms bukan detik ──
+    // Jika timestamp > 1e10, berarti dalam milliseconds → bagi 1000
+    const normalizedTs = tsSec > 1e10 ? Math.floor(tsSec / 1000) : Math.floor(tsSec);
+
     const period = getPeriodSec(timeframeRef.current);
-    const periodStart = Math.floor(tsSec / period) * period;
-    setChartData(prev => {
-      if (!prev.length) return prev;
-      const last = prev[prev.length - 1];
-      if (last.time === periodStart) {
-        // Update current building candle
-        return [...prev.slice(0, -1), {
-          ...last,
+    const periodStart = Math.floor(normalizedTs / period) * period;
+
+    // ── FIX: Validasi — jangan proses tick yang timestampnya lebih kecil dari
+    // candle historis terakhir (out-of-order atau stale data) ─────────────────
+    if (periodStart < lastHistoricalTimeRef.current) {
+      return;
+    }
+
+    setLiveTick(prev => {
+      if (prev && prev.time === periodStart) {
+        const updated: LiveTick = {
+          ...prev,
           close: price,
-          high: Math.max(last.high, price),
-          low:  Math.min(last.low,  price),
-        }];
+          high: Math.max(prev.high, price),
+          low:  Math.min(prev.low,  price),
+        };
+        liveTickRef.current = updated;
+        return updated;
       }
-      if (periodStart > last.time) {
-        // New period — open fresh candle
-        return [...prev, { time: periodStart, open: price, high: price, low: price, close: price }];
+
+      if (!prev || periodStart > prev.time) {
+        // Seed open dari close sebelumnya jika tersedia
+        const seedOpen = prev?.close ?? price;
+        const newCandle: LiveTick = {
+          time: periodStart,
+          open: seedOpen,
+          high: Math.max(seedOpen, price),
+          low:  Math.min(seedOpen, price),
+          close: price,
+        };
+        liveTickRef.current = newCandle;
+        return newCandle;
       }
+
       return prev;
     });
   }, []);
 
-  // ── WebSocket connect / reconnect ────────────────────────────────────────
   const connectWS = useCallback(() => {
     const key = process.env.NEXT_PUBLIC_TWELVEDATA_KEY;
     if (!key) return;
@@ -162,23 +206,18 @@ export default function Dashboard() {
   }, [connectWS]);
 
   useEffect(() => {
-    // 1. Load DB immediately — chart shows in <200ms
     Promise.all([fetchAll(), fetchChartData(timeframeRef.current, true)]);
-
-    // 2. Background: sync Tiingo data
     backgroundSync();
-
-    // 3. Auto-refresh every 5 min (background, no spinner)
     const interval = setInterval(backgroundSync, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Derive price stats from 1H chart data (always available, no extra DB call)
-  const currentPrice = chartData.length ? chartData[chartData.length - 1].close : 0;
+  const currentPrice = liveTick?.close ?? (chartData.length ? chartData[chartData.length - 1].close : 0);
+
   const priceChange = () => {
     if (chartData.length < 2) return { change: 0, pct: 0 };
     const first = chartData[0].close;
-    const last = chartData[chartData.length - 1].close;
+    const last = liveTick?.close ?? chartData[chartData.length - 1].close;
     return { change: last - first, pct: ((last - first) / first) * 100 };
   };
   const { change, pct } = priceChange();
@@ -186,35 +225,34 @@ export default function Dashboard() {
 
   const latestSignal = signals[signals.length - 1];
 
-  // 24H high/low from chart data
-  const high24 = chartData.length ? Math.max(...chartData.map(c => c.high)) : 0;
-  const low24  = chartData.length ? Math.min(...chartData.map(c => c.low))  : 0;
+  const high24 = chartData.length
+    ? Math.max(...chartData.map(c => c.high), liveTick?.high ?? 0)
+    : 0;
+  const low24 = chartData.length
+    ? Math.min(...chartData.map(c => c.low), liveTick?.low ?? Infinity)
+    : 0;
 
-  // Filled triangle — size prop controls px width
   const Triangle = ({ up, size = 10 }: { up: boolean; size?: number }) => {
     const h = Math.round(size * 0.78);
     return (
-      <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`} className="inline-block flex-shrink-0">
+      <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`} style={{ display: 'inline-block', flexShrink: 0 }}>
         {up
-          ? <polygon points={`${size/2},0 ${size},${h} 0,${h}`} fill="#10b981" />
-          : <polygon points={`0,0 ${size},0 ${size/2},${h}`} fill="#ef4444" />
+          ? <polygon points={`${size / 2},0 ${size},${h} 0,${h}`} fill="currentColor" />
+          : <polygon points={`0,0 ${size},0 ${size / 2},${h}`} fill="currentColor" />
         }
       </svg>
     );
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-
-      {/* ── Top Bar ── */}
-      <div className="bg-slate-900 border-b border-slate-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
-        {/* Left: logo + name */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-slate-900 font-bold text-sm flex-shrink-0">Au</div>
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-slate-950 font-bold text-sm">Au</div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base md:text-lg font-bold text-white leading-none">AURUM</h1>
-              {/* Mobile: live price next to title */}
+              <span className="font-semibold text-white text-sm md:text-base">AURUM</span>
               {currentPrice > 0 && (
                 <span className="md:hidden text-sm font-mono font-semibold text-white">
                   ${currentPrice.toFixed(2)}
@@ -233,9 +271,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right: LIVE badge + updated time + refresh */}
         <div className="flex items-center gap-2 md:gap-3">
-          {/* LIVE indicator */}
           <div className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
             <span className={`text-xs font-medium hidden sm:inline ${wsConnected ? 'text-emerald-400' : 'text-slate-600'}`}>
@@ -245,7 +281,6 @@ export default function Dashboard() {
           <span className="hidden md:inline text-xs text-slate-500">
             {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString('id-ID')}` : 'Loading...'}
           </span>
-          {/* Mobile: icon only — Desktop: icon + text */}
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -260,18 +295,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Error Banner */}
       {error && (
         <div className="bg-red-950 border-b border-red-800 px-4 py-2.5 text-red-300 text-xs md:text-sm">
           ⚠ {error}
         </div>
       )}
 
-      {/* ── Price Hero ── */}
+      {/* Price Hero */}
       <div className="px-4 md:px-6 py-4 md:py-6 border-b border-slate-800">
-        {/* ── Mobile: flat layout ── */}
+        {/* Mobile */}
         <div className="md:hidden">
-          {/* Row 1: price + signal badge */}
           <div className="flex items-start justify-between mb-1">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">XAU / USD</p>
@@ -297,21 +330,13 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-
-          {/* Row 2: change amount + pct inline */}
           {chartData.length >= 2 && (
             <div className={`flex items-center gap-2 mb-3 ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
               <Triangle up={isUp} size={12} />
-              <span className="text-lg font-bold font-mono">
-                {isUp ? '+' : ''}{change.toFixed(2)}
-              </span>
-              <span className="text-sm font-medium opacity-80">
-                ({isUp ? '+' : ''}{pct.toFixed(2)}%)
-              </span>
+              <span className="text-lg font-bold font-mono">{isUp ? '+' : ''}{change.toFixed(2)}</span>
+              <span className="text-sm font-medium opacity-80">({isUp ? '+' : ''}{pct.toFixed(2)}%)</span>
             </div>
           )}
-
-          {/* Row 3: H/L + Updated — flat text, no cards */}
           <div className="flex items-center gap-4 pt-2 border-t border-slate-800/60">
             <div className="flex items-center gap-1.5">
               <Triangle up={true} size={8} />
@@ -329,9 +354,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Desktop layout: 4 columns */}
+        {/* Desktop */}
         <div className="hidden md:grid md:grid-cols-4 gap-6">
-          {/* Price + triangle */}
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Price</p>
             <div className="flex items-center gap-2">
@@ -341,30 +365,23 @@ export default function Dashboard() {
               {chartData.length >= 2 && <Triangle up={isUp} />}
             </div>
           </div>
-          {/* Change: dollar + pct combined */}
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change</p>
             {chartData.length >= 2 ? (
               <div className={`flex items-center gap-2 ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                 <Triangle up={isUp} />
                 <div>
-                  <p className="text-2xl font-bold leading-tight">
-                    {isUp ? '+' : ''}{change.toFixed(2)}
-                  </p>
-                  <p className="text-sm font-medium opacity-80">
-                    {isUp ? '+' : ''}{pct.toFixed(2)}%
-                  </p>
+                  <p className="text-2xl font-bold leading-tight">{isUp ? '+' : ''}{change.toFixed(2)}</p>
+                  <p className="text-sm font-medium opacity-80">{isUp ? '+' : ''}{pct.toFixed(2)}%</p>
                 </div>
               </div>
             ) : <p className="text-slate-500">—</p>}
           </div>
-          {/* High / Low */}
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">High / Low</p>
             <p className="text-xl font-bold text-emerald-400">{high24 ? high24.toFixed(2) : '—'}</p>
             <p className="text-xl font-bold text-red-400">{low24 ? low24.toFixed(2) : '—'}</p>
           </div>
-          {/* Signal */}
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Signal</p>
             {latestSignal ? (
@@ -383,24 +400,20 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
-
-        {/* Chart — 2/3 width */}
         <div className="lg:col-span-2 border-r border-slate-800">
           <Chart
             data={chartData}
+            liveTick={liveTick}
             loading={chartLoading}
             timeframe={timeframe}
             onTimeframeChange={handleTimeframeChange}
           />
         </div>
-
-        {/* Indicators — 1/3 width */}
         <div>
           <IndicatorsDisplay indicators={indicators} currentPrice={currentPrice} loading={refreshing} />
         </div>
       </div>
 
-      {/* Signals */}
       <div className="border-t border-slate-800">
         <SignalsDisplay signals={signals} loading={refreshing} />
       </div>

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, execute } from '@/app/lib/db';
 
-// ── Technical Indicators ──────────────────────────────────────────────────────
-
 function calcRSI(closes: number[], period = 14): number {
   if (closes.length < period + 1) return 50;
   const changes = closes.slice(1).map((p, i) => p - closes[i]);
@@ -52,13 +50,7 @@ function calcBB(closes: number[], period = 20) {
   return { upper: mean + 2 * std, middle: mean, lower: mean - 2 * std };
 }
 
-function generateSignal(
-  rsi: number,
-  macd: number,
-  macdSignal: number,
-  price: number,
-  bb: { upper: number; middle: number; lower: number }
-) {
+function generateSignal(rsi: number, macd: number, macdSignal: number, price: number, bb: { upper: number; middle: number; lower: number }) {
   let score = 50;
   if (rsi < 30) score += 20;
   else if (rsi > 70) score -= 20;
@@ -73,65 +65,31 @@ function generateSignal(
   return { type, strength: score };
 }
 
-// ── Tiingo fetch ──────────────────────────────────────────────────────────────
-
 async function fetchTiingo(startDate: string, resampleFreq: string) {
   const token = process.env.TIINGO_API_KEY;
   const url = `https://api.tiingo.com/tiingo/fx/xauusd/prices?startDate=${startDate}&resampleFreq=${resampleFreq}&token=${token}`;
   const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
-  if (!res.ok) throw new Error(`Tiingo error: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`Tiingo ${res.status}: ${await res.text()}`);
   return res.json() as Promise<Array<{ date: string; open: number; high: number; low: number; close: number }>>;
 }
 
 const TF_CONFIGS = [
-  { dbTf: '5m',  tiingoFreq: '5min',  staleHours: 5/60, daysBack: 2,  minRows: 30, lookback: 60 }, // fetch tiap 5 menit   = ~12/jam
-  { dbTf: '1h',  tiingoFreq: '1Hour', staleHours: 1,    daysBack: 7,  minRows: 30, lookback: 60 }, // fetch tiap 1 jam     = ~1/jam
-  { dbTf: '4h',  tiingoFreq: '4Hour', staleHours: 4,    daysBack: 30, minRows: 26, lookback: 60 }, // fetch tiap 4 jam     = ~1/4jam
-  { dbTf: '1d',  tiingoFreq: '1Day',  staleHours: 24,   daysBack: 90, minRows: 26, lookback: 60 }, // fetch tiap 24 jam    = ~1/hari
+  { dbTf: '5m',  tiingoFreq: '5min',  daysBack: 2,  minRows: 30, lookback: 60 },
+  { dbTf: '1h',  tiingoFreq: '1Hour', daysBack: 7,  minRows: 30, lookback: 60 },
+  { dbTf: '4h',  tiingoFreq: '4Hour', daysBack: 30, minRows: 26, lookback: 60 },
+  { dbTf: '1d',  tiingoFreq: '1Day',  daysBack: 90, minRows: 26, lookback: 60 },
 ];
-
-// ── Route handlers ────────────────────────────────────────────────────────────
-
-export async function GET() {
-  try {
-    const prices = await query<any>(
-      `SELECT * FROM prices WHERE timeframe = '1h' ORDER BY timestamp DESC LIMIT 100`
-    );
-    return NextResponse.json({ success: true, data: prices.reverse(), count: prices.length });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
-  }
-}
 
 export async function POST(_request: NextRequest) {
   try {
-    // Remove duplicate signals
-    await execute(
-      `DELETE s1 FROM signals s1
-       INNER JOIN signals s2
-       WHERE s1.timestamp = s2.timestamp AND s1.timeframe = s2.timeframe AND s1.id < s2.id`
-    );
+    const results: any[] = [];
 
-    const fetchedTfs: string[] = [];
-    let totalInserted = 0;
-
-    // ── Step 1: Fetch OHLC data for all timeframes ────────────────────────────
     for (const tf of TF_CONFIGS) {
-      const [lastRow] = await query<{ last_ts: string }>(
-        `SELECT MAX(timestamp) as last_ts FROM prices WHERE timeframe = ?`,
-        [tf.dbTf]
-      );
+      // ── Selalu fetch dari Tiingo tanpa stale check ─────────────────────────
+      const startDate = new Date(Date.now() - tf.daysBack * 24 * 3600 * 1000)
+        .toISOString().split('T')[0];
 
-      const lastTs = lastRow?.last_ts ? new Date(lastRow.last_ts) : null;
-      const staleThreshold = new Date(Date.now() - tf.staleHours * 3600 * 1000);
-
-      if (lastTs && lastTs > staleThreshold) continue;
-
-      const maxDaysAgo = new Date(Date.now() - tf.daysBack * 24 * 3600 * 1000);
-      const startDate = lastTs && lastTs > maxDaysAgo
-        ? lastTs.toISOString().split('T')[0]
-        : maxDaysAgo.toISOString().split('T')[0];
-
+      let inserted = 0;
       try {
         const candles = await fetchTiingo(startDate, tf.tiingoFreq);
         for (const c of candles) {
@@ -140,25 +98,22 @@ export async function POST(_request: NextRequest) {
             `INSERT IGNORE INTO prices (timestamp, timeframe, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?, 0)`,
             [ts, tf.dbTf, c.open, c.high, c.low, c.close]
           );
-          totalInserted++;
+          inserted++;
         }
-        fetchedTfs.push(tf.dbTf);
-      } catch (e) {
-        console.warn(`Tiingo fetch failed for ${tf.dbTf}:`, e);
+        results.push({ tf: tf.dbTf, fetched: candles.length, inserted });
+      } catch (e: any) {
+        results.push({ tf: tf.dbTf, error: e.message });
+        continue;
       }
-    }
 
-    // ── Step 2: Calculate indicators & signal PER timeframe ───────────────────
-    const signalResults: any[] = [];
-
-    for (const tf of TF_CONFIGS) {
+      // ── Generate signal dari data terbaru ──────────────────────────────────
       const rows = await query<{ close: string; timestamp: string }>(
         `SELECT close, timestamp FROM prices WHERE timeframe = ? ORDER BY timestamp DESC LIMIT ?`,
         [tf.dbTf, tf.lookback]
       );
 
       if (rows.length < tf.minRows) {
-        signalResults.push({ tf: tf.dbTf, skipped: true, reason: 'not enough data' });
+        results.push({ tf: tf.dbTf, signal: 'skipped - not enough data', rows: rows.length });
         continue;
       }
 
@@ -174,30 +129,23 @@ export async function POST(_request: NextRequest) {
       const indicators = JSON.stringify({ rsi, macd, macdSignal, macdHistogram: histogram, bb });
       const signalTs = new Date(latestTs).toISOString().slice(0, 19).replace('T', ' ');
 
-      const [existing] = await query<{ cnt: number }>(
-        `SELECT COUNT(*) as cnt FROM signals WHERE timestamp = ? AND timeframe = ?`,
-        [signalTs, tf.dbTf]
+      // Upsert — update kalau sudah ada, insert kalau belum
+      await execute(
+        `INSERT INTO signals (timestamp, timeframe, type, strength, price, indicators)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE type=VALUES(type), strength=VALUES(strength), price=VALUES(price), indicators=VALUES(indicators)`,
+        [signalTs, tf.dbTf, type, strength, latestClose, indicators]
       );
 
-      if (!existing || existing.cnt === 0) {
-        await execute(
-          `INSERT INTO signals (timestamp, timeframe, type, strength, price, indicators) VALUES (?, ?, ?, ?, ?, ?)`,
-          [signalTs, tf.dbTf, type, strength, latestClose, indicators]
-        );
-        signalResults.push({ tf: tf.dbTf, inserted: true, type, strength, rsi: rsi.toFixed(2) });
-      } else {
-        signalResults.push({ tf: tf.dbTf, inserted: false, reason: 'already exists' });
-      }
+      results.push({ tf: tf.dbTf, signal: { type, strength, rsi: rsi.toFixed(1), price: latestClose } });
     }
 
-    return NextResponse.json({
-      success: true,
-      inserted: totalInserted,
-      fetchedTfs,
-      signals: signalResults,
-    });
+    return NextResponse.json({ success: true, results });
   } catch (error) {
-    console.error('fetch-price error:', error);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ message: 'Use POST to force-fetch all timeframes' });
 }
