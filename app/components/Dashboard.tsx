@@ -33,6 +33,11 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
+  // ── WebSocket live feed ──────────────────────────────────────────────────
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const fetchChartData = useCallback(async (tf: Timeframe, showSpinner = false) => {
     if (showSpinner) setChartLoading(true);
     try {
@@ -88,6 +93,73 @@ export default function Dashboard() {
     localStorage.setItem('aurum_tf', tf);
     fetchChartData(tf, true);
   };
+
+  // ── Live candle tick handler ─────────────────────────────────────────────
+  const getPeriodSec = (tf: Timeframe) =>
+    ({ '5M': 300, '1H': 3600, '4H': 14400, '1D': 86400 } as Record<Timeframe, number>)[tf];
+
+  const handleTick = useCallback((price: number, tsSec: number) => {
+    const period = getPeriodSec(timeframeRef.current);
+    const periodStart = Math.floor(tsSec / period) * period;
+    setChartData(prev => {
+      if (!prev.length) return prev;
+      const last = prev[prev.length - 1];
+      if (last.time === periodStart) {
+        // Update current building candle
+        return [...prev.slice(0, -1), {
+          ...last,
+          close: price,
+          high: Math.max(last.high, price),
+          low:  Math.min(last.low,  price),
+        }];
+      }
+      if (periodStart > last.time) {
+        // New period — open fresh candle
+        return [...prev, { time: periodStart, open: price, high: price, low: price, close: price }];
+      }
+      return prev;
+    });
+  }, []);
+
+  // ── WebSocket connect / reconnect ────────────────────────────────────────
+  const connectWS = useCallback(() => {
+    const key = process.env.NEXT_PUBLIC_TWELVEDATA_KEY;
+    if (!key) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    const ws = new WebSocket(`wss://ws.twelvedata.com/v1/quotes/price?apikey=${key}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setWsConnected(true);
+      ws.send(JSON.stringify({ action: 'subscribe', params: { symbols: 'XAU/USD' } }));
+    };
+
+    ws.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.event === 'price' && msg.price != null) {
+          handleTick(parseFloat(msg.price), msg.timestamp);
+        }
+      } catch {}
+    };
+
+    ws.onerror = () => ws.close();
+
+    ws.onclose = () => {
+      setWsConnected(false);
+      wsRef.current = null;
+      reconnectTimer.current = setTimeout(connectWS, 4000);
+    };
+  }, [handleTick]);
+
+  useEffect(() => {
+    connectWS();
+    return () => {
+      reconnectTimer.current && clearTimeout(reconnectTimer.current);
+      wsRef.current?.close();
+    };
+  }, [connectWS]);
 
   useEffect(() => {
     // 1. Load DB immediately — chart shows in <200ms
@@ -161,8 +233,15 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right: updated time + refresh */}
+        {/* Right: LIVE badge + updated time + refresh */}
         <div className="flex items-center gap-2 md:gap-3">
+          {/* LIVE indicator */}
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+            <span className={`text-xs font-medium hidden sm:inline ${wsConnected ? 'text-emerald-400' : 'text-slate-600'}`}>
+              {wsConnected ? 'LIVE' : 'OFFLINE'}
+            </span>
+          </div>
           <span className="hidden md:inline text-xs text-slate-500">
             {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString('id-ID')}` : 'Loading...'}
           </span>
