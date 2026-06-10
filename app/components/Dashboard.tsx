@@ -106,6 +106,20 @@ export default function Dashboard() {
 
   const latestSignal = signals[signals.length - 1];
 
+  // 24H high/low from chart data
+  const high24 = chartData.length ? Math.max(...chartData.map(c => c.high)) : 0;
+  const low24  = chartData.length ? Math.min(...chartData.map(c => c.low))  : 0;
+
+  // Filled triangle SVG
+  const Triangle = ({ up }: { up: boolean }) => (
+    <svg width="9" height="7" viewBox="0 0 9 7" className="inline-block flex-shrink-0">
+      {up
+        ? <polygon points="4.5,0 9,7 0,7" fill="#10b981" />
+        : <polygon points="0,0 9,0 4.5,7" fill="#ef4444" />
+      }
+    </svg>
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
 
@@ -124,10 +138,11 @@ export default function Dashboard() {
                 </span>
               )}
               {currentPrice > 0 && chartData.length >= 2 && (
-                <span className={`md:hidden text-xs font-medium px-1.5 py-0.5 rounded ${
+                <span className={`md:hidden inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded ${
                   isUp ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
                 }`}>
-                  {isUp ? '+' : ''}{pct.toFixed(2)}%
+                  <Triangle up={isUp} />
+                  {Math.abs(pct).toFixed(2)}%
                 </span>
               )}
             </div>
@@ -169,9 +184,14 @@ export default function Dashboard() {
           <div className="flex items-end justify-between mb-3">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">XAU/USD</p>
-              <p className="text-4xl font-bold text-white tracking-tight">
-                {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-4xl font-bold text-white tracking-tight">
+                  {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
+                </p>
+                {chartData.length >= 2 && (
+                  <Triangle up={isUp} />
+                )}
+              </div>
             </div>
             {latestSignal && (
               <div className={`flex flex-col items-center px-3 py-2 rounded-xl ${
@@ -190,20 +210,31 @@ export default function Dashboard() {
           </div>
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2">
+            {/* Change: gabung dollar + persen dalam 1 card */}
             <div className="bg-slate-900 rounded-xl p-3">
-              <p className="text-xs text-slate-500 mb-0.5">Change</p>
-              <p className={`text-sm font-bold font-mono ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-                {chartData.length >= 2 ? `${isUp ? '+' : ''}${change.toFixed(2)}` : '—'}
-              </p>
+              <p className="text-xs text-slate-500 mb-1">Change</p>
+              {chartData.length >= 2 ? (
+                <div className={`flex items-center gap-1 ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <Triangle up={isUp} />
+                  <div>
+                    <p className="text-sm font-bold font-mono leading-tight">
+                      {isUp ? '+' : ''}{change.toFixed(2)}
+                    </p>
+                    <p className="text-xs font-mono opacity-80">
+                      {isUp ? '+' : ''}{pct.toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+              ) : <p className="text-slate-500 text-sm">—</p>}
+            </div>
+            {/* High / Low */}
+            <div className="bg-slate-900 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-1">H / L</p>
+              <p className="text-xs font-mono text-emerald-400 leading-tight">{high24 ? high24.toFixed(2) : '—'}</p>
+              <p className="text-xs font-mono text-red-400 leading-tight">{low24 ? low24.toFixed(2) : '—'}</p>
             </div>
             <div className="bg-slate-900 rounded-xl p-3">
-              <p className="text-xs text-slate-500 mb-0.5">Change %</p>
-              <p className={`text-sm font-bold font-mono ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-                {chartData.length >= 2 ? `${isUp ? '+' : ''}${pct.toFixed(2)}%` : '—'}
-              </p>
-            </div>
-            <div className="bg-slate-900 rounded-xl p-3">
-              <p className="text-xs text-slate-500 mb-0.5">Updated</p>
+              <p className="text-xs text-slate-500 mb-1">Updated</p>
               <p className="text-xs text-slate-300 font-mono">
                 {lastUpdate ? lastUpdate.toLocaleTimeString('id-ID') : '—'}
               </p>
@@ -213,24 +244,40 @@ export default function Dashboard() {
 
         {/* Desktop layout: 4 columns */}
         <div className="hidden md:grid md:grid-cols-4 gap-6">
+          {/* Price + triangle */}
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Price</p>
-            <p className="text-3xl font-bold text-white">
-              {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-3xl font-bold text-white">
+                {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
+              </p>
+              {chartData.length >= 2 && <Triangle up={isUp} />}
+            </div>
           </div>
+          {/* Change: dollar + pct combined */}
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change</p>
-            <p className={`text-2xl font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-              {chartData.length >= 2 ? `${isUp ? '+' : ''}${change.toFixed(2)}` : '—'}
-            </p>
+            {chartData.length >= 2 ? (
+              <div className={`flex items-center gap-2 ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                <Triangle up={isUp} />
+                <div>
+                  <p className="text-2xl font-bold leading-tight">
+                    {isUp ? '+' : ''}{change.toFixed(2)}
+                  </p>
+                  <p className="text-sm font-medium opacity-80">
+                    {isUp ? '+' : ''}{pct.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+            ) : <p className="text-slate-500">—</p>}
           </div>
+          {/* High / Low */}
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change %</p>
-            <p className={`text-2xl font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-              {chartData.length >= 2 ? `${isUp ? '+' : ''}${pct.toFixed(2)}%` : '—'}
-            </p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">High / Low</p>
+            <p className="text-xl font-bold text-emerald-400">{high24 ? high24.toFixed(2) : '—'}</p>
+            <p className="text-xl font-bold text-red-400">{low24 ? low24.toFixed(2) : '—'}</p>
           </div>
+          {/* Signal */}
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Signal</p>
             {latestSignal ? (
