@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 const Chart = dynamic(() => import('./Chart'), { ssr: false, loading: () => (
   <div className="flex items-center justify-center h-96 bg-slate-950">
@@ -11,15 +11,33 @@ import IndicatorsDisplay from './Indicators';
 import SignalsDisplay from './Signals';
 import { Indicators, Signal } from '@/app/lib/types';
 
+type Timeframe = '1H' | '4H' | '1D';
+
 export default function Dashboard() {
-  const [prices, setPrices] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [timeframe, setTimeframe] = useState<Timeframe>('1H');
+
   const [signals, setSignals] = useState<Signal[]>([]);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
+  const [priceHistory, setPriceHistory] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  const fetchChartData = useCallback(async (tf: Timeframe) => {
+    setChartLoading(true);
+    try {
+      const res = await fetch(`/api/candles?tf=${tf}`);
+      const json = await res.json();
+      if (json.success) setChartData(json.data);
+    } catch (_) {
+      // keep existing data
+    } finally {
+      setChartLoading(false);
+    }
+  }, []);
 
   const fetchAll = async () => {
     try {
@@ -34,7 +52,7 @@ export default function Dashboard() {
       const signalsData = await signalsRes.json();
 
       if (pricesData.success && pricesData.data?.length) {
-        setPrices(pricesData.data);
+        setPriceHistory(pricesData.data);
         setCurrentPrice(parseFloat(pricesData.data[pricesData.data.length - 1].close));
       }
 
@@ -47,10 +65,8 @@ export default function Dashboard() {
       }
 
       setLastUpdate(new Date());
-    } catch (e) {
+    } catch (_) {
       setError('Cannot connect to server');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -58,23 +74,27 @@ export default function Dashboard() {
     setRefreshing(true);
     try {
       await fetch('/api/fetch-price', { method: 'POST' });
-      await fetchAll();
+      await Promise.all([fetchAll(), fetchChartData(timeframe)]);
     } finally {
       setRefreshing(false);
     }
   };
 
+  const handleTimeframeChange = (tf: Timeframe) => {
+    setTimeframe(tf);
+    fetchChartData(tf);
+  };
+
   useEffect(() => {
-    // On mount: fetch new data from Tiingo then load
     handleRefresh();
     const interval = setInterval(handleRefresh, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
   const priceChange = () => {
-    if (prices.length < 2) return { change: 0, pct: 0 };
-    const first = parseFloat(prices[0].close);
-    const last = parseFloat(prices[prices.length - 1].close);
+    if (priceHistory.length < 2) return { change: 0, pct: 0 };
+    const first = parseFloat(priceHistory[0].close);
+    const last = parseFloat(priceHistory[priceHistory.length - 1].close);
     return { change: last - first, pct: ((last - first) / first) * 100 };
   };
 
@@ -129,13 +149,13 @@ export default function Dashboard() {
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change</p>
             <p className={`text-2xl font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-              {prices.length >= 2 ? `${isUp ? '+' : ''}${change.toFixed(2)}` : '—'}
+              {priceHistory.length >= 2 ? `${isUp ? '+' : ''}${change.toFixed(2)}` : '—'}
             </p>
           </div>
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change %</p>
             <p className={`text-2xl font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-              {prices.length >= 2 ? `${isUp ? '+' : ''}${pct.toFixed(2)}%` : '—'}
+              {priceHistory.length >= 2 ? `${isUp ? '+' : ''}${pct.toFixed(2)}%` : '—'}
             </p>
           </div>
           <div>
@@ -165,18 +185,22 @@ export default function Dashboard() {
 
         {/* Chart — 2/3 width */}
         <div className="lg:col-span-2 border-r border-slate-800">
-          <Chart data={prices} loading={loading} />
+          <Chart
+            data={chartData}
+            loading={chartLoading}
+            onTimeframeChange={handleTimeframeChange}
+          />
         </div>
 
         {/* Indicators — 1/3 width */}
         <div>
-          <IndicatorsDisplay indicators={indicators} currentPrice={currentPrice} loading={loading} />
+          <IndicatorsDisplay indicators={indicators} currentPrice={currentPrice} loading={refreshing} />
         </div>
       </div>
 
       {/* Signals */}
       <div className="border-t border-slate-800">
-        <SignalsDisplay signals={signals} loading={loading} />
+        <SignalsDisplay signals={signals} loading={refreshing} />
       </div>
 
       <div className="text-center py-4 text-xs text-slate-600 border-t border-slate-800">

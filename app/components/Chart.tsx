@@ -3,18 +3,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 
+const TIMEFRAMES = ['1H', '4H', '1D'] as const;
+type Timeframe = typeof TIMEFRAMES[number];
+
 interface ChartProps {
   data?: any[];
   loading?: boolean;
+  onTimeframeChange?: (tf: Timeframe) => void;
 }
 
-export default function Chart({ data = [], loading = false }: ChartProps) {
+export default function Chart({ data = [], loading = false, onTimeframeChange }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
+  const [activeTab, setActiveTab] = useState<Timeframe>('1H');
 
-  // Initialize chart once container is in DOM — always rendered so ref is stable
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -73,20 +77,47 @@ export default function Chart({ data = [], loading = false }: ChartProps) {
     }
   }, [data, ready]);
 
+  const handleTab = (tf: Timeframe) => {
+    setActiveTab(tf);
+    onTimeframeChange?.(tf);
+  };
+
   const last = data[data.length - 1];
 
   return (
     <div className="bg-slate-950 p-4">
-      {last && (
-        <div className="flex gap-6 mb-3 text-xs">
-          <span><span className="text-slate-500">O </span><span className="text-slate-300 font-mono">{parseFloat(last.open).toFixed(2)}</span></span>
-          <span><span className="text-slate-500">H </span><span className="text-emerald-400 font-mono">{parseFloat(last.high).toFixed(2)}</span></span>
-          <span><span className="text-slate-500">L </span><span className="text-red-400 font-mono">{parseFloat(last.low).toFixed(2)}</span></span>
-          <span><span className="text-slate-500">C </span><span className="text-blue-400 font-mono">{parseFloat(last.close).toFixed(2)}</span></span>
-        </div>
-      )}
+      {/* Header row: OHLC + tabs */}
+      <div className="flex items-center justify-between mb-3">
+        {last ? (
+          <div className="flex gap-5 text-xs">
+            <span><span className="text-slate-500">O </span><span className="text-slate-300 font-mono">{parseFloat(last.open).toFixed(2)}</span></span>
+            <span><span className="text-slate-500">H </span><span className="text-emerald-400 font-mono">{parseFloat(last.high).toFixed(2)}</span></span>
+            <span><span className="text-slate-500">L </span><span className="text-red-400 font-mono">{parseFloat(last.low).toFixed(2)}</span></span>
+            <span><span className="text-slate-500">C </span><span className="text-blue-400 font-mono">{parseFloat(last.close).toFixed(2)}</span></span>
+          </div>
+        ) : (
+          <div />
+        )}
 
-      {/* Container always in DOM so containerRef is stable at mount */}
+        {/* Timeframe tabs */}
+        <div className="flex bg-slate-900 rounded-lg p-0.5 gap-0.5">
+          {TIMEFRAMES.map(tf => (
+            <button
+              key={tf}
+              onClick={() => handleTab(tf)}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                activeTab === tf
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart container — always in DOM so ref is stable at mount */}
       <div className="relative" style={{ height: '420px' }}>
         <div ref={containerRef} className="w-full h-full" />
 
@@ -102,6 +133,13 @@ export default function Chart({ data = [], loading = false }: ChartProps) {
         {!loading && !data.length && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-slate-500 text-sm">No price data available</p>
+          </div>
+        )}
+
+        {/* Loading overlay saat ganti tab */}
+        {loading && !!data.length && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
