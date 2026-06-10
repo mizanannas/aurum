@@ -21,61 +21,54 @@ export default function Dashboard() {
 
   const [signals, setSignals] = useState<Signal[]>([]);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
-  const [currentPrice, setCurrentPrice] = useState<number>(0);
-  const [priceHistory, setPriceHistory] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  const fetchChartData = useCallback(async (tf: Timeframe) => {
-    setChartLoading(true);
+  const fetchChartData = useCallback(async (tf: Timeframe, showSpinner = false) => {
+    if (showSpinner) setChartLoading(true);
     try {
       const res = await fetch(`/api/candles?tf=${tf}`);
       const json = await res.json();
-      if (json.success) setChartData(json.data);
+      if (json.success && json.data?.length) setChartData(json.data);
     } catch (_) {
-      // keep existing data
+      // keep existing data on error
     } finally {
       setChartLoading(false);
     }
   }, []);
 
+  // Only fetches signals — price/chart data comes from fetchChartData
   const fetchAll = async () => {
     try {
       setError(null);
-
-      const [pricesRes, signalsRes] = await Promise.all([
-        fetch('/api/prices?limit=100'),
-        fetch('/api/signals?limit=20'),
-      ]);
-
-      const pricesData = await pricesRes.json();
-      const signalsData = await signalsRes.json();
-
-      if (pricesData.success && pricesData.data?.length) {
-        setPriceHistory(pricesData.data);
-        setCurrentPrice(parseFloat(pricesData.data[pricesData.data.length - 1].close));
-      }
-
-      if (signalsData.success && signalsData.data?.length) {
-        setSignals(signalsData.data);
-        const latest = signalsData.data[signalsData.data.length - 1];
+      const res = await fetch('/api/signals?limit=20');
+      const json = await res.json();
+      if (json.success && json.data?.length) {
+        setSignals(json.data);
+        const latest = json.data[json.data.length - 1];
         if (latest.indicators) setIndicators(latest.indicators);
-      } else if (!signalsData.success) {
-        setError(signalsData.error || 'Database error');
+      } else if (!json.success) {
+        setError(json.error || 'Database error');
       }
-
       setLastUpdate(new Date());
     } catch (_) {
       setError('Cannot connect to server');
     }
   };
 
+  // Background: fetch fresh data from Tiingo, then silently update UI
+  const backgroundSync = useCallback(async () => {
+    try {
+      await fetch('/api/fetch-price', { method: 'POST' });
+      await Promise.all([fetchAll(), fetchChartData(timeframeRef.current)]);
+    } catch (_) {}
+  }, [fetchAll, fetchChartData]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetch('/api/fetch-price', { method: 'POST' });
-      await Promise.all([fetchAll(), fetchChartData(timeframe)]);
+      await backgroundSync();
     } finally {
       setRefreshing(false);
     }
@@ -84,27 +77,30 @@ export default function Dashboard() {
   const handleTimeframeChange = (tf: Timeframe) => {
     setTimeframe(tf);
     timeframeRef.current = tf;
-    fetchChartData(tf);
+    // Show spinner only on tab change (no cached data yet for this tf)
+    fetchChartData(tf, true);
   };
 
   useEffect(() => {
-    handleRefresh();
-    // Interval uses ref so it always refreshes the currently active tab
-    const interval = setInterval(() => {
-      fetch('/api/fetch-price', { method: 'POST' })
-        .then(() => Promise.all([fetchAll(), fetchChartData(timeframeRef.current)]))
-        .catch(() => {});
-    }, 5 * 60 * 1000);
+    // 1. Load DB immediately — chart shows in <200ms
+    Promise.all([fetchAll(), fetchChartData('1H', true)]);
+
+    // 2. Background: sync Tiingo data
+    backgroundSync();
+
+    // 3. Auto-refresh every 5 min (background, no spinner)
+    const interval = setInterval(backgroundSync, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
+  // Derive price stats from 1H chart data (always available, no extra DB call)
+  const currentPrice = chartData.length ? chartData[chartData.length - 1].close : 0;
   const priceChange = () => {
-    if (priceHistory.length < 2) return { change: 0, pct: 0 };
-    const first = parseFloat(priceHistory[0].close);
-    const last = parseFloat(priceHistory[priceHistory.length - 1].close);
+    if (chartData.length < 2) return { change: 0, pct: 0 };
+    const first = chartData[0].close;
+    const last = chartData[chartData.length - 1].close;
     return { change: last - first, pct: ((last - first) / first) * 100 };
   };
-
   const { change, pct } = priceChange();
   const isUp = change >= 0;
 
@@ -156,13 +152,13 @@ export default function Dashboard() {
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change</p>
             <p className={`text-2xl font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-              {priceHistory.length >= 2 ? `${isUp ? '+' : ''}${change.toFixed(2)}` : '—'}
+              {chartData.length >= 2 ? `${isUp ? '+' : ''}${change.toFixed(2)}` : '—'}
             </p>
           </div>
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change %</p>
             <p className={`text-2xl font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-              {priceHistory.length >= 2 ? `${isUp ? '+' : ''}${pct.toFixed(2)}%` : '—'}
+              {chartData.length >= 2 ? `${isUp ? '+' : ''}${pct.toFixed(2)}%` : '—'}
             </p>
           </div>
           <div>
