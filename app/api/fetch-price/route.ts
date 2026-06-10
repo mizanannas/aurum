@@ -74,9 +74,9 @@ async function fetchTiingo(startDate: string, resampleFreq: string) {
 }
 
 // Timeframe configs: only call Tiingo when last candle is older than staleHours
-// staleHours for 1h = 5min (0.083h) → Tiingo polled every 5 min = 12/hour, under 50 limit
-// 4h and 1d stay at their natural intervals
+// 5m + 1h both poll every 5 min = 24/hour total, under 50 limit
 const TF_CONFIGS = [
+  { dbTf: '5m', tiingoFreq: '5min',  staleHours: 5/60, daysBack: 2  },
   { dbTf: '1h', tiingoFreq: '1Hour', staleHours: 5/60, daysBack: 7  },
   { dbTf: '4h', tiingoFreq: '4Hour', staleHours: 4,    daysBack: 30 },
   { dbTf: '1d', tiingoFreq: '1Day',  staleHours: 24,   daysBack: 90 },

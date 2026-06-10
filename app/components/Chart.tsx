@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 
-const TIMEFRAMES = ['1H', '4H', '1D'] as const;
+const TIMEFRAMES = ['5M', '1H', '4H', '1D'] as const;
 type Timeframe = typeof TIMEFRAMES[number];
 
 interface ChartProps {

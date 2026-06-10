@@ -11,7 +11,7 @@ import IndicatorsDisplay from './Indicators';
 import SignalsDisplay from './Signals';
 import { Indicators, Signal } from '@/app/lib/types';
 
-type Timeframe = '1H' | '4H' | '1D';
+type Timeframe = '5M' | '1H' | '4H' | '1D';
 
 export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);

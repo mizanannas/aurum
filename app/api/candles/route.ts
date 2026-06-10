@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
 
 const TF_MAP: Record<string, { dbTf: string; limit: number }> = {
+  '5M': { dbTf: '5m', limit: 288 }, // 1 day × 288 candles
   '1H': { dbTf: '1h', limit: 168 }, // 7 days × 24h
   '4H': { dbTf: '4h', limit: 180 }, // 30 days × 6 candles/day
   '1D': { dbTf: '1d', limit: 90  },
