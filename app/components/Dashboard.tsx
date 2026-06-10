@@ -104,45 +104,115 @@ export default function Dashboard() {
   const { change, pct } = priceChange();
   const isUp = change >= 0;
 
+  const latestSignal = signals[signals.length - 1];
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
 
-      {/* Top Bar */}
-      <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-slate-900 font-bold text-sm">Au</div>
+      {/* ── Top Bar ── */}
+      <div className="bg-slate-900 border-b border-slate-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+        {/* Left: logo + name */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-slate-900 font-bold text-sm flex-shrink-0">Au</div>
           <div>
-            <h1 className="text-lg font-bold text-white leading-none">AURUM</h1>
-            <p className="text-xs text-slate-500 mt-1">XAUUSD · Real-time Analysis</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base md:text-lg font-bold text-white leading-none">AURUM</h1>
+              {/* Mobile: live price next to title */}
+              {currentPrice > 0 && (
+                <span className="md:hidden text-sm font-mono font-semibold text-white">
+                  ${currentPrice.toFixed(2)}
+                </span>
+              )}
+              {currentPrice > 0 && chartData.length >= 2 && (
+                <span className={`md:hidden text-xs font-medium px-1.5 py-0.5 rounded ${
+                  isUp ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                }`}>
+                  {isUp ? '+' : ''}{pct.toFixed(2)}%
+                </span>
+              )}
+            </div>
+            <p className="hidden md:block text-xs text-slate-500 mt-0.5">XAUUSD · Real-time Analysis</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">
+
+        {/* Right: updated time + refresh */}
+        <div className="flex items-center gap-2 md:gap-3">
+          <span className="hidden md:inline text-xs text-slate-500">
             {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString('id-ID')}` : 'Loading...'}
           </span>
+          {/* Mobile: icon only — Desktop: icon + text */}
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700 rounded-lg text-xs text-slate-300 transition-colors"
+            title="Refresh"
+            className="flex items-center gap-1.5 p-2 md:px-3 md:py-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700 rounded-lg text-slate-300 transition-colors"
           >
-            <svg className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            {refreshing ? 'Fetching...' : 'Refresh'}
+            <span className="hidden md:inline text-xs">{refreshing ? 'Fetching...' : 'Refresh'}</span>
           </button>
         </div>
       </div>
 
       {/* Error Banner */}
       {error && (
-        <div className="bg-red-950 border-b border-red-800 px-6 py-3 text-red-300 text-sm">
+        <div className="bg-red-950 border-b border-red-800 px-4 py-2.5 text-red-300 text-xs md:text-sm">
           ⚠ {error}
         </div>
       )}
 
-      {/* Price Hero */}
-      <div className="px-6 py-6 border-b border-slate-800">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      {/* ── Price Hero ── */}
+      <div className="px-4 md:px-6 py-4 md:py-6 border-b border-slate-800">
+        {/* Mobile layout: price big + stats row */}
+        <div className="md:hidden">
+          <div className="flex items-end justify-between mb-3">
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">XAU/USD</p>
+              <p className="text-4xl font-bold text-white tracking-tight">
+                {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
+              </p>
+            </div>
+            {latestSignal && (
+              <div className={`flex flex-col items-center px-3 py-2 rounded-xl ${
+                latestSignal.type === 'BUY' ? 'bg-emerald-500/15 border border-emerald-500/30'
+                : latestSignal.type === 'SELL' ? 'bg-red-500/15 border border-red-500/30'
+                : 'bg-amber-500/15 border border-amber-500/30'
+              }`}>
+                <span className={`text-sm font-bold ${
+                  latestSignal.type === 'BUY' ? 'text-emerald-400'
+                  : latestSignal.type === 'SELL' ? 'text-red-400'
+                  : 'text-amber-400'
+                }`}>{latestSignal.type}</span>
+                <span className="text-xs text-slate-400">{latestSignal.strength}%</span>
+              </div>
+            )}
+          </div>
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-slate-900 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-0.5">Change</p>
+              <p className={`text-sm font-bold font-mono ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                {chartData.length >= 2 ? `${isUp ? '+' : ''}${change.toFixed(2)}` : '—'}
+              </p>
+            </div>
+            <div className="bg-slate-900 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-0.5">Change %</p>
+              <p className={`text-sm font-bold font-mono ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                {chartData.length >= 2 ? `${isUp ? '+' : ''}${pct.toFixed(2)}%` : '—'}
+              </p>
+            </div>
+            <div className="bg-slate-900 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-0.5">Updated</p>
+              <p className="text-xs text-slate-300 font-mono">
+                {lastUpdate ? lastUpdate.toLocaleTimeString('id-ID') : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop layout: 4 columns */}
+        <div className="hidden md:grid md:grid-cols-4 gap-6">
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Price</p>
             <p className="text-3xl font-bold text-white">
@@ -163,22 +233,16 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Signal</p>
-            {signals.length > 0 ? (
+            {latestSignal ? (
               <div className="flex items-center gap-2">
-                <span className={`text-lg font-bold px-3 py-1 rounded-full text-sm ${
-                  signals[signals.length - 1].type === 'BUY'
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : signals[signals.length - 1].type === 'SELL'
-                    ? 'bg-red-500/20 text-red-400'
-                    : 'bg-amber-500/20 text-amber-400'
-                }`}>
-                  {signals[signals.length - 1].type}
-                </span>
-                <span className="text-slate-400 text-sm">{signals[signals.length - 1].strength}%</span>
+                <span className={`font-bold px-3 py-1 rounded-full text-sm ${
+                  latestSignal.type === 'BUY' ? 'bg-emerald-500/20 text-emerald-400'
+                  : latestSignal.type === 'SELL' ? 'bg-red-500/20 text-red-400'
+                  : 'bg-amber-500/20 text-amber-400'
+                }`}>{latestSignal.type}</span>
+                <span className="text-slate-400 text-sm">{latestSignal.strength}%</span>
               </div>
-            ) : (
-              <p className="text-slate-500">—</p>
-            )}
+            ) : <p className="text-slate-500">—</p>}
           </div>
         </div>
       </div>

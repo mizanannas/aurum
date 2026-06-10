@@ -21,7 +21,6 @@ export default function Chart({ data = [], loading = false, onTimeframeChange }:
 
   useEffect(() => {
     if (!containerRef.current) return;
-
     const chart = createChart(containerRef.current, {
       autoSize: true,
       layout: {
@@ -37,34 +36,18 @@ export default function Chart({ data = [], loading = false, onTimeframeChange }:
         horzLine: { color: '#334155', labelBackgroundColor: '#1e293b' },
       },
       rightPriceScale: { borderColor: '#1e293b' },
-      timeScale: {
-        borderColor: '#1e293b',
-        timeVisible: true,
-        secondsVisible: false,
-      },
+      timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false },
       height: 420,
     });
-
     chartRef.current = chart;
-
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderUpColor: '#10b981',
-      borderDownColor: '#ef4444',
-      wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
+      upColor: '#10b981', downColor: '#ef4444',
+      borderUpColor: '#10b981', borderDownColor: '#ef4444',
+      wickUpColor: '#10b981', wickDownColor: '#ef4444',
     });
-
     seriesRef.current = series;
     setReady(true);
-
-    return () => {
-      chart.remove();
-      chartRef.current = null;
-      seriesRef.current = null;
-      setReady(false);
-    };
+    return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; setReady(false); };
   }, []);
 
   useEffect(() => {
@@ -72,9 +55,7 @@ export default function Chart({ data = [], loading = false, onTimeframeChange }:
     try {
       seriesRef.current.setData(data);
       chartRef.current?.timeScale().fitContent();
-    } catch (e) {
-      console.warn('Chart data error:', e);
-    }
+    } catch (e) { console.warn('Chart data error:', e); }
   }, [data, ready]);
 
   const handleTab = (tf: Timeframe) => {
@@ -85,67 +66,100 @@ export default function Chart({ data = [], loading = false, onTimeframeChange }:
   const last = data[data.length - 1];
 
   return (
-    <div className="bg-slate-950 p-4">
-      {/* Header row: OHLC + tabs */}
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-slate-950">
+      {/* Chart header */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        {/* OHLC values */}
         {last ? (
-          <div className="flex gap-5 text-xs">
-            <span><span className="text-slate-500">O </span><span className="text-slate-300 font-mono">{parseFloat(last.open).toFixed(2)}</span></span>
-            <span><span className="text-slate-500">H </span><span className="text-emerald-400 font-mono">{parseFloat(last.high).toFixed(2)}</span></span>
-            <span><span className="text-slate-500">L </span><span className="text-red-400 font-mono">{parseFloat(last.low).toFixed(2)}</span></span>
-            <span><span className="text-slate-500">C </span><span className="text-blue-400 font-mono">{parseFloat(last.close).toFixed(2)}</span></span>
+          <div className="flex gap-3 md:gap-5 text-xs min-w-0 flex-1 mr-3">
+            <span className="whitespace-nowrap">
+              <span className="text-slate-600">O </span>
+              <span className="text-slate-300 font-mono">{parseFloat(last.open).toFixed(2)}</span>
+            </span>
+            <span className="whitespace-nowrap">
+              <span className="text-slate-600">H </span>
+              <span className="text-emerald-400 font-mono">{parseFloat(last.high).toFixed(2)}</span>
+            </span>
+            <span className="whitespace-nowrap">
+              <span className="text-slate-600">L </span>
+              <span className="text-red-400 font-mono">{parseFloat(last.low).toFixed(2)}</span>
+            </span>
+            <span className="whitespace-nowrap hidden sm:inline">
+              <span className="text-slate-600">C </span>
+              <span className="text-blue-400 font-mono">{parseFloat(last.close).toFixed(2)}</span>
+            </span>
           </div>
-        ) : (
-          <div />
-        )}
+        ) : <div className="flex-1" />}
 
-        {/* Timeframe tabs */}
-        <div className="flex bg-slate-900 rounded-lg p-0.5 gap-0.5">
-          {TIMEFRAMES.map(tf => (
-            <button
-              key={tf}
-              onClick={() => handleTab(tf)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                activeTab === tf
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {tf}
-            </button>
-          ))}
+        {/* Mobile: dropdown — Desktop: tabs */}
+        <div className="flex-shrink-0">
+          {/* Mobile dropdown */}
+          <div className="md:hidden">
+            <div className="relative">
+              <select
+                value={activeTab}
+                onChange={e => handleTab(e.target.value as Timeframe)}
+                className="appearance-none bg-slate-800 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg pl-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {TIMEFRAMES.map(tf => (
+                  <option key={tf} value={tf}>{tf}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop tabs */}
+          <div className="hidden md:flex bg-slate-900 rounded-lg p-0.5 gap-0.5">
+            {TIMEFRAMES.map(tf => (
+              <button
+                key={tf}
+                onClick={() => handleTab(tf)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  activeTab === tf
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Chart container — always in DOM so ref is stable at mount */}
-      <div className="relative" style={{ height: '420px' }}>
+      {/* Chart canvas — always in DOM so ref is stable */}
+      <div className="relative" style={{ height: '380px' }}>
         <div ref={containerRef} className="w-full h-full" />
 
         {loading && !data.length && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
             <div className="text-center">
-              <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">Loading chart...</p>
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-slate-500 text-xs">Loading chart...</p>
             </div>
           </div>
         )}
-
         {!loading && !data.length && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-slate-500 text-sm">No price data available</p>
           </div>
         )}
-
-        {/* Loading overlay saat ganti tab */}
         {loading && !!data.length && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
 
       {ready && !!data.length && (
-        <p className="text-xs text-slate-700 mt-2">Scroll to zoom · Drag to pan · Double-click to reset</p>
+        <p className="text-xs text-slate-800 px-4 pb-2 hidden md:block">
+          Scroll to zoom · Drag to pan · Double-click to reset
+        </p>
       )}
     </div>
   );
