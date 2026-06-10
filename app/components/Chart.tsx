@@ -40,9 +40,17 @@ export default function Chart({ data = [], loading = false, onTimeframeChange, t
         vertLine: { color: '#334155', labelBackgroundColor: '#1e293b' },
         horzLine: { color: '#334155', labelBackgroundColor: '#1e293b' },
       },
-      rightPriceScale: { borderColor: '#1e293b' },
-      timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false },
-      height: 420,
+      rightPriceScale: {
+        borderColor: '#1e293b',
+        scaleMargins: { top: 0.12, bottom: 0.12 },
+      },
+      timeScale: {
+        borderColor: '#1e293b',
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 8,
+        minBarSpacing: 3,
+      },
     });
     chartRef.current = chart;
     const series = chart.addSeries(CandlestickSeries, {
@@ -59,7 +67,13 @@ export default function Chart({ data = [], loading = false, onTimeframeChange, t
     if (!ready || !seriesRef.current || !data?.length) return;
     try {
       seriesRef.current.setData(data);
-      chartRef.current?.timeScale().fitContent();
+      // Show last ~80 bars by default so candles aren't tiny, with 8-bar right padding
+      const total = data.length;
+      const show  = Math.min(total, 80);
+      chartRef.current?.timeScale().setVisibleLogicalRange({
+        from: total - show,
+        to:   total - 1 + 8,
+      });
     } catch (e) { console.warn('Chart data error:', e); }
   }, [data, ready]);
 
