@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 const Chart = dynamic(() => import('./Chart'), { ssr: false, loading: () => (
   <div className="flex items-center justify-center h-96 bg-slate-950">
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartLoading, setChartLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<Timeframe>('1H');
+  const timeframeRef = useRef<Timeframe>('1H');
 
   const [signals, setSignals] = useState<Signal[]>([]);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
@@ -82,12 +83,18 @@ export default function Dashboard() {
 
   const handleTimeframeChange = (tf: Timeframe) => {
     setTimeframe(tf);
+    timeframeRef.current = tf;
     fetchChartData(tf);
   };
 
   useEffect(() => {
     handleRefresh();
-    const interval = setInterval(handleRefresh, 5 * 60 * 1000);
+    // Interval uses ref so it always refreshes the currently active tab
+    const interval = setInterval(() => {
+      fetch('/api/fetch-price', { method: 'POST' })
+        .then(() => Promise.all([fetchAll(), fetchChartData(timeframeRef.current)]))
+        .catch(() => {});
+    }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
