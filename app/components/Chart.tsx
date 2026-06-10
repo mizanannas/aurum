@@ -40,28 +40,28 @@ export default function Chart({ data = [], liveTick = null, loading = false, onT
     const chart = createChart(containerRef.current, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: '#020617' },
-        textColor: '#94a3b8',
+        background: { type: ColorType.Solid, color: '#0a0a0a' },
+        textColor: 'rgba(255,255,255,0.38)',
       },
       grid: {
-        vertLines: { color: '#0f172a' },
-        horzLines: { color: '#0f172a' },
+        vertLines: { color: 'rgba(212,160,23,0.06)' },
+        horzLines: { color: 'rgba(212,160,23,0.06)' },
       },
       crosshair: {
-        vertLine: { color: '#334155', labelBackgroundColor: '#1e293b' },
-        horzLine: { color: '#334155', labelBackgroundColor: '#1e293b' },
+        vertLine: { color: 'rgba(212,160,23,0.4)', labelBackgroundColor: '#1a1408' },
+        horzLine: { color: 'rgba(212,160,23,0.4)', labelBackgroundColor: '#1a1408' },
       },
       rightPriceScale: {
-        borderColor: '#1e293b',
+        borderColor: 'rgba(212,160,23,0.15)',
         scaleMargins: { top: 0.12, bottom: 0.12 },
       },
       timeScale: {
-        borderColor: '#1e293b',
+        borderColor: 'rgba(212,160,23,0.15)',
         timeVisible: true,
         secondsVisible: false,
         minBarSpacing: 3,
-        rightOffset: 12,        // ruang kosong di kanan candle terakhir
-        barSpacing: 8,          // lebar candle default lebih nyaman
+        rightOffset: 12,
+        barSpacing: 8,
       },
     });
     chartRef.current = chart;
@@ -141,101 +141,80 @@ export default function Chart({ data = [], liveTick = null, loading = false, onT
 
   const last = data[data.length - 1];
 
+  const ohlcMuted = 'rgba(255,255,255,0.25)';
+
   return (
-    <div className="bg-slate-950">
+    <div style={{ background: '#0a0a0a' }}>
       {/* Chart header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         {/* OHLC values */}
         {last ? (
           <div className="flex gap-3 md:gap-5 text-xs min-w-0 flex-1 mr-3">
             <span className="whitespace-nowrap">
-              <span className="text-slate-600">O </span>
-              <span className="text-slate-300 font-mono">{parseFloat(last.open).toFixed(2)}</span>
+              <span style={{ color: ohlcMuted }}>O </span>
+              <span className="font-mono" style={{ color: 'rgba(255,255,255,0.65)' }}>{parseFloat(last.open).toFixed(2)}</span>
             </span>
             <span className="whitespace-nowrap">
-              <span className="text-slate-600">H </span>
+              <span style={{ color: ohlcMuted }}>H </span>
               <span className="text-emerald-400 font-mono">{parseFloat(last.high).toFixed(2)}</span>
             </span>
             <span className="whitespace-nowrap">
-              <span className="text-slate-600">L </span>
+              <span style={{ color: ohlcMuted }}>L </span>
               <span className="text-red-400 font-mono">{parseFloat(last.low).toFixed(2)}</span>
             </span>
             <span className="whitespace-nowrap hidden sm:inline">
-              <span className="text-slate-600">C </span>
-              <span className="text-blue-400 font-mono">{parseFloat(last.close).toFixed(2)}</span>
+              <span style={{ color: ohlcMuted }}>C </span>
+              <span className="font-mono text-amber-400">{parseFloat(last.close).toFixed(2)}</span>
             </span>
           </div>
         ) : (
           <div className="flex-1" />
         )}
 
-        {/* Mobile: dropdown — Desktop: tabs */}
-        <div className="flex-shrink-0">
-          {/* Mobile dropdown */}
-          <div className="md:hidden">
-            <div className="relative">
-              <select
-                value={activeTab}
-                onChange={e => handleTab(e.target.value as Timeframe)}
-                className="appearance-none bg-slate-800 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg pl-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                {TIMEFRAMES.map(tf => (
-                  <option key={tf} value={tf}>{tf}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop tabs */}
-          <div className="hidden md:flex bg-slate-900 rounded-lg p-0.5 gap-0.5">
-            {TIMEFRAMES.map(tf => (
-              <button
-                key={tf}
-                onClick={() => handleTab(tf)}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  activeTab === tf
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
+        {/* Timeframe tabs — same style mobile & desktop */}
+        <div className="flex-shrink-0 flex rounded-lg p-0.5 gap-0.5" style={{ background: 'rgba(212,160,23,0.08)', border: '1px solid rgba(212,160,23,0.15)' }}>
+          {TIMEFRAMES.map(tf => (
+            <button
+              key={tf}
+              onClick={() => handleTab(tf)}
+              className="px-3 py-1 text-xs font-semibold rounded-md transition-all"
+              style={activeTab === tf
+                ? { background: '#D4A017', color: '#000000' }
+                : { color: 'rgba(255,255,255,0.45)' }
+              }
+            >
+              {tf}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Chart canvas — always in DOM so ref is stable */}
+      {/* Chart canvas */}
       <div className="relative" style={{ height: '380px' }}>
         <div ref={containerRef} className="w-full h-full" />
 
         {loading && !data.length && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#0a0a0a' }}>
             <div className="text-center">
-              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-slate-500 text-xs">Loading chart...</p>
+              <div className="w-8 h-8 rounded-full animate-spin mx-auto mb-2" style={{ border: '2px solid rgba(212,160,23,0.2)', borderTopColor: '#D4A017' }} />
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Loading chart...</p>
             </div>
           </div>
         )}
         {!loading && !data.length && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-slate-500 text-sm">No price data available</p>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No price data available</p>
           </div>
         )}
         {loading && !!data.length && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50">
-            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(10,10,10,0.5)' }}>
+            <div className="w-6 h-6 rounded-full animate-spin" style={{ border: '2px solid rgba(212,160,23,0.2)', borderTopColor: '#D4A017' }} />
           </div>
         )}
       </div>
 
       {ready && !!data.length && (
-        <p className="text-xs text-slate-800 px-4 pb-2 hidden md:block">
+        <p className="text-xs px-4 pb-2 hidden md:block" style={{ color: 'rgba(255,255,255,0.12)' }}>
           Scroll to zoom · Drag to pan · Double-click to reset
         </p>
       )}

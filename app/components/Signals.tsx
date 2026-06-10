@@ -9,9 +9,9 @@ interface SignalsProps {
 }
 
 const TYPE_STYLE = {
-  BUY:  { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', badge: 'bg-emerald-500/20 text-emerald-400', dot: 'bg-emerald-400' },
-  SELL: { bg: 'bg-red-500/10',     border: 'border-red-500/30',     badge: 'bg-red-500/20 text-red-400',         dot: 'bg-red-400'     },
-  HOLD: { bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   badge: 'bg-amber-500/20 text-amber-400',     dot: 'bg-amber-400'   },
+  BUY:  { bg: 'rgba(16,185,129,0.07)',  border: 'rgba(16,185,129,0.25)',  badge: 'bg-emerald-500/20 text-emerald-400', dot: 'bg-emerald-400' },
+  SELL: { bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.25)',   badge: 'bg-red-500/20 text-red-400',         dot: 'bg-red-400'     },
+  HOLD: { bg: 'rgba(212,160,23,0.07)',  border: 'rgba(212,160,23,0.25)',  badge: 'bg-amber-500/20 text-amber-400',     dot: 'bg-amber-400'   },
 };
 
 function formatDate(d: Date | string) {
@@ -23,11 +23,17 @@ export default function SignalsDisplay({ signals, loading = false }: SignalsProp
   const sells = signals.filter(s => s.type === 'SELL').length;
   const holds = signals.filter(s => s.type === 'HOLD').length;
 
+  const muted = 'rgba(255,255,255,0.38)';
+  const dim   = 'rgba(255,255,255,0.18)';
+
   return (
-    <div className="bg-slate-950 p-4">
+    <div className="p-4" style={{ background: '#0a0a0a' }}>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs text-slate-500 uppercase tracking-wider">Trading Signals</p>
-        <div className="flex gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-px h-3" style={{ background: '#D4A017' }} />
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#D4A017' }}>Trading Signals</p>
+        </div>
+        <div className="flex gap-3 text-xs font-medium">
           <span className="text-emerald-400">{buys} Buy</span>
           <span className="text-red-400">{sells} Sell</span>
           <span className="text-amber-400">{holds} Hold</span>
@@ -37,13 +43,13 @@ export default function SignalsDisplay({ signals, loading = false }: SignalsProp
       {loading && !signals.length && (
         <div className="space-y-2">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 bg-slate-900 rounded-lg animate-pulse" />
+            <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'rgba(212,160,23,0.05)' }} />
           ))}
         </div>
       )}
 
       {!loading && !signals.length && (
-        <div className="py-12 text-center text-slate-500 text-sm">
+        <div className="py-12 text-center text-sm" style={{ color: muted }}>
           No signals yet — signals appear after price data is analyzed
         </div>
       )}
@@ -54,7 +60,11 @@ export default function SignalsDisplay({ signals, loading = false }: SignalsProp
           const price = parseFloat(signal.price as any);
           const ind = signal.indicators;
           return (
-            <div key={signal.id} className={`${style.bg} border ${style.border} rounded-lg p-4`}>
+            <div
+              key={signal.id}
+              className="rounded-xl p-4"
+              style={{ background: style.bg, border: `1px solid ${style.border}` }}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${style.dot}`} />
@@ -67,11 +77,11 @@ export default function SignalsDisplay({ signals, loading = false }: SignalsProp
 
               {/* Strength bar */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs text-slate-500 mb-1">
-                  <span>Strength</span>
-                  <span className="text-slate-300 font-medium">{signal.strength}%</span>
+                <div className="flex justify-between text-xs mb-1">
+                  <span style={{ color: muted }}>Strength</span>
+                  <span className="font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{signal.strength}%</span>
                 </div>
-                <div className="w-full bg-slate-700 rounded-full h-1">
+                <div className="w-full rounded-full h-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
                   <div
                     className={`h-1 rounded-full ${
                       signal.strength >= 65 ? 'bg-emerald-500'
@@ -85,23 +95,23 @@ export default function SignalsDisplay({ signals, loading = false }: SignalsProp
 
               {/* Indicators */}
               {ind && (
-                <div className="grid grid-cols-3 gap-2 text-xs border-t border-slate-700/50 pt-2">
+                <div className="grid grid-cols-3 gap-2 text-xs pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                   <div>
-                    <p className="text-slate-500">RSI</p>
-                    <p className="text-slate-200 font-mono">{parseFloat(ind.rsi as any)?.toFixed(1) ?? 'N/A'}</p>
+                    <p style={{ color: muted }}>RSI</p>
+                    <p className="font-mono" style={{ color: 'rgba(255,255,255,0.75)' }}>{parseFloat(ind.rsi as any)?.toFixed(1) ?? 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500">MACD</p>
-                    <p className="text-slate-200 font-mono">{parseFloat(ind.macd as any)?.toFixed(1) ?? 'N/A'}</p>
+                    <p style={{ color: muted }}>MACD</p>
+                    <p className="font-mono" style={{ color: 'rgba(255,255,255,0.75)' }}>{parseFloat(ind.macd as any)?.toFixed(1) ?? 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500">BB</p>
-                    <p className="text-slate-200 font-mono">{ind.bb ? 'OK' : 'N/A'}</p>
+                    <p style={{ color: muted }}>BB</p>
+                    <p className="font-mono" style={{ color: 'rgba(255,255,255,0.75)' }}>{ind.bb ? 'OK' : 'N/A'}</p>
                   </div>
                 </div>
               )}
 
-              <p className="text-xs text-slate-600 mt-2">{formatDate(signal.timestamp)}</p>
+              <p className="text-xs mt-2" style={{ color: dim }}>{formatDate(signal.timestamp)}</p>
             </div>
           );
         })}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { DollarSign, TrendingUp, TrendingDown, CandlestickChart, Zap } from 'lucide-react';
 import dynamic from 'next/dynamic';
 const Chart = dynamic(() => import('./Chart'), { ssr: false, loading: () => (
   <div className="flex items-center justify-center h-96 bg-slate-950">
@@ -234,25 +235,47 @@ export default function Dashboard() {
 
   const Triangle = ({ up, size = 10 }: { up: boolean; size?: number }) => {
     const h = Math.round(size * 0.78);
+    const pad = Math.round(size * 0.4);
     return (
-      <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`} style={{ display: 'inline-block', flexShrink: 0 }}>
-        {up
-          ? <polygon points={`${size / 2},0 ${size},${h} 0,${h}`} fill="currentColor" />
-          : <polygon points={`0,0 ${size},0 ${size / 2},${h}`} fill="currentColor" />
-        }
-      </svg>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: `${pad}px`,
+          borderRadius: '4px',
+          backgroundColor: up ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+          flexShrink: 0,
+        }}
+      >
+        <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`} style={{ display: 'block' }}>
+          {up
+            ? <polygon points={`${size / 2},0 ${size},${h} 0,${h}`} fill="#10b981" />
+            : <polygon points={`0,0 ${size},0 ${size / 2},${h}`} fill="#ef4444" />
+          }
+        </svg>
+      </span>
     );
   };
 
+  const gold = '#D4A017';
+  const goldBorder = 'rgba(212,160,23,0.2)';
+  const goldBg = 'rgba(212,160,23,0.07)';
+  const muted = 'rgba(255,255,255,0.38)';
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen text-white" style={{ background: '#0a0a0a' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-slate-800">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3" style={{ background: '#060504', borderBottom: `1px solid ${goldBorder}` }}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-slate-950 font-bold text-sm">Au</div>
+          {/* Logo badge — gold gradient */}
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #B8860B, #D4A017, #F0C040)', color: '#000' }}>
+            Au
+          </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-white text-sm md:text-base">AURUM</span>
+              <span className="font-bold text-white text-sm md:text-base tracking-wide">AURUM</span>
               {currentPrice > 0 && (
                 <span className="md:hidden text-sm font-mono font-semibold text-white">
                   ${currentPrice.toFixed(2)}
@@ -267,30 +290,35 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <p className="hidden md:block text-xs text-slate-500 mt-0.5">XAUUSD · Real-time Analysis</p>
+            <p className="hidden md:block text-xs mt-0.5" style={{ color: muted }}>XAUUSD · Real-time Analysis</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
+          {/* LIVE indicator */}
           <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
-            <span className={`text-xs font-medium hidden sm:inline ${wsConnected ? 'text-emerald-400' : 'text-slate-600'}`}>
+            <span className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: wsConnected ? gold : 'rgba(255,255,255,0.2)',
+                       boxShadow: wsConnected ? `0 0 6px ${gold}` : 'none',
+                       animation: wsConnected ? 'pulse 2s infinite' : 'none' }} />
+            <span className="text-xs font-semibold hidden sm:inline" style={{ color: wsConnected ? gold : muted }}>
               {wsConnected ? 'LIVE' : 'OFFLINE'}
             </span>
           </div>
-          <span className="hidden md:inline text-xs text-slate-500">
+          <span className="hidden md:inline text-xs" style={{ color: muted }}>
             {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString('id-ID')}` : 'Loading...'}
           </span>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
             title="Refresh"
-            className="flex items-center gap-1.5 p-2 md:px-3 md:py-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700 rounded-lg text-slate-300 transition-colors"
+            className="flex items-center gap-1.5 p-2 md:px-3 md:py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: goldBg, border: `1px solid ${goldBorder}`, color: gold }}
           >
             <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <span className="hidden md:inline text-xs">{refreshing ? 'Fetching...' : 'Refresh'}</span>
+            <span className="hidden md:inline text-xs font-medium">{refreshing ? 'Fetching...' : 'Refresh'}</span>
           </button>
         </div>
       </div>
@@ -302,21 +330,19 @@ export default function Dashboard() {
       )}
 
       {/* Price Hero */}
-      <div className="px-4 md:px-6 py-4 md:py-6 border-b border-slate-800">
+      <div className="px-4 md:px-6 py-4 md:py-6" style={{ borderBottom: `1px solid ${goldBorder}` }}>
         {/* Mobile */}
         <div className="md:hidden">
-          <div className="flex items-start justify-between mb-1">
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">XAU / USD</p>
-              <div className="flex items-center gap-3">
-                <p className="text-5xl font-bold text-white tracking-tight leading-none">
-                  {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
-                </p>
-                {chartData.length >= 2 && <Triangle up={isUp} size={18} />}
-              </div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: gold }}>XAU / USD</p>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-3">
+              <p className="text-5xl font-bold text-white tracking-tight leading-none">
+                {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
+              </p>
+              {chartData.length >= 2 && <Triangle up={isUp} size={18} />}
             </div>
             {latestSignal && (
-              <div className={`flex flex-col items-center px-3 py-2 rounded-xl mt-1 ${
+              <div className={`flex flex-col items-center px-3 py-2 rounded-xl ${
                 latestSignal.type === 'BUY' ? 'bg-emerald-500/15 border border-emerald-500/30'
                 : latestSignal.type === 'SELL' ? 'bg-red-500/15 border border-red-500/30'
                 : 'bg-amber-500/15 border border-amber-500/30'
@@ -326,64 +352,81 @@ export default function Dashboard() {
                   : latestSignal.type === 'SELL' ? 'text-red-400'
                   : 'text-amber-400'
                 }`}>{latestSignal.type}</span>
-                <span className="text-xs text-slate-400">{latestSignal.strength}%</span>
+                <span className="text-xs" style={{ color: muted }}>{latestSignal.strength}%</span>
               </div>
             )}
           </div>
           {chartData.length >= 2 && (
             <div className={`flex items-center gap-2 mb-3 ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-              <Triangle up={isUp} size={12} />
               <span className="text-lg font-bold font-mono">{isUp ? '+' : ''}{change.toFixed(2)}</span>
+              <Triangle up={isUp} size={12} />
               <span className="text-sm font-medium opacity-80">({isUp ? '+' : ''}{pct.toFixed(2)}%)</span>
             </div>
           )}
-          <div className="flex items-center gap-4 pt-2 border-t border-slate-800/60">
+          <div className="flex items-center gap-4 pt-2" style={{ borderTop: `1px solid ${goldBorder}` }}>
             <div className="flex items-center gap-1.5">
               <Triangle up={true} size={8} />
-              <span className="text-xs text-slate-500">H</span>
-              <span className="text-xs font-mono text-slate-300">{high24 ? high24.toFixed(2) : '—'}</span>
+              <span className="text-xs" style={{ color: muted }}>H</span>
+              <span className="text-xs font-mono text-white/70">{high24 ? high24.toFixed(2) : '—'}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Triangle up={false} size={8} />
-              <span className="text-xs text-slate-500">L</span>
-              <span className="text-xs font-mono text-slate-300">{low24 ? low24.toFixed(2) : '—'}</span>
+              <span className="text-xs" style={{ color: muted }}>L</span>
+              <span className="text-xs font-mono text-white/70">{low24 ? low24.toFixed(2) : '—'}</span>
             </div>
-            <span className="ml-auto text-xs text-slate-600">
+            <span className="ml-auto text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
               {lastUpdate ? lastUpdate.toLocaleTimeString('id-ID') : ''}
             </span>
           </div>
         </div>
 
         {/* Desktop */}
-        <div className="hidden md:grid md:grid-cols-4 gap-6">
-          <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Price</p>
+        <div className="hidden md:grid md:grid-cols-4 gap-4">
+          {/* Price */}
+          <div className="rounded-xl p-4" style={{ background: goldBg, border: `1px solid ${goldBorder}` }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <DollarSign className="w-3.5 h-3.5" style={{ color: gold }} />
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: muted }}>Price</p>
+            </div>
             <div className="flex items-center gap-2">
-              <p className="text-3xl font-bold text-white">
-                {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
-              </p>
+              <p className="text-3xl font-bold text-white">{currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}</p>
               {chartData.length >= 2 && <Triangle up={isUp} />}
             </div>
           </div>
-          <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Change</p>
+          {/* Change */}
+          <div className="rounded-xl p-4" style={{ background: goldBg, border: `1px solid ${goldBorder}` }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              {isUp
+                ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                : <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+              }
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: muted }}>Change</p>
+            </div>
             {chartData.length >= 2 ? (
-              <div className={`flex items-center gap-2 ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-                <Triangle up={isUp} />
-                <div>
+              <div className={isUp ? 'text-emerald-400' : 'text-red-400'}>
+                <div className="flex items-center gap-1.5">
                   <p className="text-2xl font-bold leading-tight">{isUp ? '+' : ''}{change.toFixed(2)}</p>
-                  <p className="text-sm font-medium opacity-80">{isUp ? '+' : ''}{pct.toFixed(2)}%</p>
+                  <Triangle up={isUp} />
                 </div>
+                <p className="text-sm font-medium opacity-80">{isUp ? '+' : ''}{pct.toFixed(2)}%</p>
               </div>
-            ) : <p className="text-slate-500">—</p>}
+            ) : <p style={{ color: muted }}>—</p>}
           </div>
-          <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">High / Low</p>
+          {/* High / Low */}
+          <div className="rounded-xl p-4" style={{ background: goldBg, border: `1px solid ${goldBorder}` }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <CandlestickChart className="w-3.5 h-3.5" style={{ color: gold }} />
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: muted }}>High / Low</p>
+            </div>
             <p className="text-xl font-bold text-emerald-400">{high24 ? high24.toFixed(2) : '—'}</p>
             <p className="text-xl font-bold text-red-400">{low24 ? low24.toFixed(2) : '—'}</p>
           </div>
-          <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Signal</p>
+          {/* Signal */}
+          <div className="rounded-xl p-4" style={{ background: goldBg, border: `1px solid ${goldBorder}` }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Zap className="w-3.5 h-3.5" style={{ color: gold }} />
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: muted }}>Signal</p>
+            </div>
             {latestSignal ? (
               <div className="flex items-center gap-2">
                 <span className={`font-bold px-3 py-1 rounded-full text-sm ${
@@ -391,16 +434,16 @@ export default function Dashboard() {
                   : latestSignal.type === 'SELL' ? 'bg-red-500/20 text-red-400'
                   : 'bg-amber-500/20 text-amber-400'
                 }`}>{latestSignal.type}</span>
-                <span className="text-slate-400 text-sm">{latestSignal.strength}%</span>
+                <span className="text-sm" style={{ color: muted }}>{latestSignal.strength}%</span>
               </div>
-            ) : <p className="text-slate-500">—</p>}
+            ) : <p style={{ color: muted }}>—</p>}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
-        <div className="lg:col-span-2 border-r border-slate-800">
+        <div className="lg:col-span-2" style={{ borderRight: `1px solid ${goldBorder}` }}>
           <Chart
             data={chartData}
             liveTick={liveTick}
@@ -414,11 +457,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="border-t border-slate-800">
+      <div style={{ borderTop: `1px solid ${goldBorder}` }}>
         <SignalsDisplay signals={signals} loading={refreshing} />
       </div>
 
-      <div className="text-center py-4 text-xs text-slate-600 border-t border-slate-800">
+      <div className="text-center py-4 text-xs" style={{ borderTop: `1px solid ${goldBorder}`, color: 'rgba(255,255,255,0.18)' }}>
         Auto-refresh every 5 min · Powered by Tiingo API · Not financial advice
       </div>
     </div>
