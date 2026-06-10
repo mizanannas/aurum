@@ -146,10 +146,52 @@ export default function Chart({ data = [], liveTick = null, loading = false, onT
   return (
     <div style={{ background: '#0a0a0a' }}>
       {/* Chart header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        {/* OHLC values */}
-        {last ? (
-          <div className="flex gap-3 md:gap-5 text-xs min-w-0 flex-1 mr-3">
+      <div className="px-4 pt-3 pb-2">
+        {/* Row 1: tabs (full width on mobile, right-aligned on desktop) */}
+        <div className="flex items-center justify-between mb-2">
+          {/* Desktop: OHLC left + tabs right */}
+          {last ? (
+            <div className="hidden md:flex gap-5 text-xs min-w-0 flex-1 mr-3">
+              <span className="whitespace-nowrap">
+                <span style={{ color: ohlcMuted }}>O </span>
+                <span className="font-mono" style={{ color: 'rgba(255,255,255,0.65)' }}>{parseFloat(last.open).toFixed(2)}</span>
+              </span>
+              <span className="whitespace-nowrap">
+                <span style={{ color: ohlcMuted }}>H </span>
+                <span className="text-emerald-400 font-mono">{parseFloat(last.high).toFixed(2)}</span>
+              </span>
+              <span className="whitespace-nowrap">
+                <span style={{ color: ohlcMuted }}>L </span>
+                <span className="text-red-400 font-mono">{parseFloat(last.low).toFixed(2)}</span>
+              </span>
+              <span className="whitespace-nowrap">
+                <span style={{ color: ohlcMuted }}>C </span>
+                <span className="font-mono text-amber-400">{parseFloat(last.close).toFixed(2)}</span>
+              </span>
+            </div>
+          ) : <div className="hidden md:block flex-1" />}
+
+          {/* Timeframe tabs */}
+          <div className="flex rounded-lg p-0.5 gap-0.5 w-full md:w-auto" style={{ background: 'rgba(212,160,23,0.08)', border: '1px solid rgba(212,160,23,0.15)' }}>
+            {TIMEFRAMES.map(tf => (
+              <button
+                key={tf}
+                onClick={() => handleTab(tf)}
+                className="flex-1 md:flex-none px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
+                style={activeTab === tf
+                  ? { background: '#D4A017', color: '#000000' }
+                  : { color: 'rgba(255,255,255,0.45)' }
+                }
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Row 2: OHLC values — mobile only, full width, no overflow */}
+        {last && (
+          <div className="md:hidden flex gap-3 text-xs">
             <span className="whitespace-nowrap">
               <span style={{ color: ohlcMuted }}>O </span>
               <span className="font-mono" style={{ color: 'rgba(255,255,255,0.65)' }}>{parseFloat(last.open).toFixed(2)}</span>
@@ -162,31 +204,12 @@ export default function Chart({ data = [], liveTick = null, loading = false, onT
               <span style={{ color: ohlcMuted }}>L </span>
               <span className="text-red-400 font-mono">{parseFloat(last.low).toFixed(2)}</span>
             </span>
-            <span className="whitespace-nowrap hidden sm:inline">
+            <span className="whitespace-nowrap">
               <span style={{ color: ohlcMuted }}>C </span>
               <span className="font-mono text-amber-400">{parseFloat(last.close).toFixed(2)}</span>
             </span>
           </div>
-        ) : (
-          <div className="flex-1" />
         )}
-
-        {/* Timeframe tabs — same style mobile & desktop */}
-        <div className="flex-shrink-0 flex rounded-lg p-0.5 gap-0.5" style={{ background: 'rgba(212,160,23,0.08)', border: '1px solid rgba(212,160,23,0.15)' }}>
-          {TIMEFRAMES.map(tf => (
-            <button
-              key={tf}
-              onClick={() => handleTab(tf)}
-              className="px-3 py-1 text-xs font-semibold rounded-md transition-all"
-              style={activeTab === tf
-                ? { background: '#D4A017', color: '#000000' }
-                : { color: 'rgba(255,255,255,0.45)' }
-              }
-            >
-              {tf}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Chart canvas */}
